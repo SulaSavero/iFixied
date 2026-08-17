@@ -1,0 +1,108 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
+export default function LoginPage() {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    // Get admin password from settings
+    const savedSettings = localStorage.getItem('app_settings');
+    const adminPassword = savedSettings ? JSON.parse(savedSettings).adminPassword : 'sula7852';
+
+    // Admin login
+    if (username === 'admin' && password === adminPassword) {
+      localStorage.setItem('isLoggedIn', 'true');
+      localStorage.setItem('userRole', 'admin');
+      window.location.href = '/dashboard';
+      return;
+    }
+
+    // Member login (using phone number as username and custom password)
+    const savedMembers = localStorage.getItem('members_data');
+    if (savedMembers) {
+      const members = JSON.parse(savedMembers);
+      // Check if user matches phone and either custom password OR phone (as default password)
+      const member = members.find((m: any) => 
+        m.phone === username && (m.password === password || (!m.password && m.phone === password))
+      );
+      
+      if (member) {
+        localStorage.setItem('isLoggedIn', 'true');
+        localStorage.setItem('userRole', 'member');
+        localStorage.setItem('memberId', member.id);
+        window.location.href = '/dashboard';
+        return;
+      }
+    }
+
+    setError('Username atau password salah. (Untuk member: gunakan No. HP sebagai user & pass)');
+    setLoading(false);
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
+      <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl border border-slate-100">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-slate-900">sFixied</h1>
+          <p className="text-slate-500 mt-2">Masuk ke sistem penggadaian (Offline Mode)</p>
+        </div>
+        
+        <form onSubmit={handleLogin} className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Username</label>
+            <input
+              type="text"
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+            <input
+              type="password"
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+          
+          {error && <p className="text-red-500 text-sm text-center font-medium">{error}</p>}
+          
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-all active:scale-95 disabled:opacity-50"
+          >
+            {loading ? 'Memproses...' : 'Login'}
+          </button>
+
+          <div className="mt-4 pt-4 border-t border-slate-100">
+            <a 
+              href="/scan"
+              className="w-full flex items-center justify-center gap-2 text-blue-600 font-medium py-2 hover:underline transition-all"
+            >
+              Cek Status Gadaian (Scan QR)
+            </a>
+          </div>
+        </form>
+        
+        <div className="mt-8 text-center">
+           <p className="text-xs text-slate-400">Data disimpan secara lokal di browser/aplikasi ini.</p>
+        </div>
+      </div>
+    </div>
+  );
+}

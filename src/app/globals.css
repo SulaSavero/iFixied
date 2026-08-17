@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+@layer components {
+  .excel-table {
+    @apply w-full border-collapse bg-white shadow-sm rounded-lg overflow-hidden;
+  }
+
+  .excel-table th {
+    @apply bg-slate-100 text-slate-700 font-semibold p-3 text-left border-b border-slate-200 text-sm;
+  }
+
+  .excel-table td {
+    @apply p-3 border-b border-slate-100 text-sm text-slate-600;
+  }
+
+  .excel-table tr:hover {
+    @apply bg-slate-50;
+  }
+
+  .btn-primary {
+    @apply bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-all active:scale-95 font-medium;
+  }
+
+  .btn-secondary {
+    @apply bg-slate-200 hover:bg-slate-300 text-slate-800 px-4 py-2 rounded-md transition-all active:scale-95 font-medium;
+  }
+  
+  .card {
+    @apply bg-white p-6 rounded-xl shadow-sm border border-slate-200;
+  }
+}
