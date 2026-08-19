@@ -24,6 +24,7 @@ export default function PawnDashboard() {
   const [pawns, setPawns] = useState<Pawn[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<'overview' | 'pawns' | 'members' | 'settings'>('overview');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -73,6 +74,7 @@ export default function PawnDashboard() {
 
  const savePawn = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
     try {
       if (selectedPawn) {
         const res = await fetch('/api/pawns', {
@@ -98,8 +100,10 @@ export default function PawnDashboard() {
       }
     } catch (err) {
       console.error('Gagal menyimpan data pawn:', err);
+      setIsSaving(false);
       alert('Gagal menyimpan data. Coba lagi.');
     }
+    setIsSaving(false);
     setIsModalOpen(false); setSelectedPawn(null); setFormData(emptyPawnForm);
   };
 
@@ -754,7 +758,7 @@ export default function PawnDashboard() {
                 </select>
               </div>
               <div className="col-span-2 flex gap-2 mt-3">
-                <button type="submit" className="flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-transform"><Save size={16} /> Simpan</button>
+                <button type="submit" disabled={isSaving} className="flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-transform disabled:opacity-50"><Save size={16} /> {isSaving ? 'Menyimpan...' : 'Simpan'}</button>
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 bg-slate-100 text-slate-600 font-semibold py-3 rounded-xl">Batal</button>
               </div>
             </form>
