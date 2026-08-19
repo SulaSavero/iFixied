@@ -26,20 +26,21 @@ export default function ViewPawnPage() {
   useEffect(() => {
     if (!code) return;
     
-    // Simulate finding data in LocalStorage
-    const savedPawns = localStorage.getItem('pawns_data');
-    if (savedPawns) {
-      const allPawns: Pawn[] = JSON.parse(savedPawns);
-      const found = allPawns.find(p => p.accessCode === code);
-      if (found) {
-        setPawn({ ...found, status: found.status || 'active' });
-      } else {
-        setError('Data tidak ditemukan');
-      }
+    fetch('/api/pawns')
+  .then(res => res.json())
+  .then((allPawns: Pawn[]) => {
+    const found = allPawns.find(p => p.accessCode === code);
+    if (found) {
+      setPawn({ ...found, status: found.status || 'active' });
     } else {
-      setError('Belum ada data tersimpan');
+      setError('Data tidak ditemukan');
     }
-    setLoading(false);
+  })
+  .catch(err => {
+    console.error('Gagal ambil data:', err);
+    setError('Gagal memuat data');
+  })
+  .finally(() => setLoading(false));
   }, [code]);
 
   if (loading) return (

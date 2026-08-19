@@ -16,10 +16,10 @@ export default function AdminScanner() {
   const [scanning, setScanning] = useState(true);
   const [manualCode, setManualCode] = useState('');
 
-  const lookupCode = useCallback((code: string) => {
-    const saved = localStorage.getItem('pawns_data');
-    if (!saved) { setNotFound(true); setScanning(false); return; }
-    const allPawns: Pawn[] = JSON.parse(saved);
+  const lookupCode = useCallback(async (code: string) => {
+  try {
+    const res = await fetch('/api/pawns');
+    const allPawns: Pawn[] = await res.json();
     const found = allPawns.find(p => p.accessCode === code.toUpperCase());
     if (found) {
       setFoundPawn({ ...found, status: found.status || 'active' });
@@ -28,8 +28,13 @@ export default function AdminScanner() {
       setNotFound(true);
       setFoundPawn(null);
     }
-    setScanning(false);
-  }, []);
+  } catch (err) {
+    console.error('Gagal ambil data pawns:', err);
+    setNotFound(true);
+    setFoundPawn(null);
+  }
+  setScanning(false);
+}, []);
 
   useEffect(() => {
     if (!scanning) return;
@@ -54,17 +59,22 @@ export default function AdminScanner() {
     return () => { scanner.clear().catch(() => {}); };
   }, [scanning, lookupCode]);
 
-  const toggleStatus = () => {
-    if (!foundPawn) return;
-    const newStatus = foundPawn.status === 'redeemed' ? 'active' : 'redeemed';
-    const saved = localStorage.getItem('pawns_data');
-    if (saved) {
-      const allPawns: Pawn[] = JSON.parse(saved);
-      const updated = allPawns.map(p => p.id === foundPawn.id ? { ...p, status: newStatus } : p);
-      localStorage.setItem('pawns_data', JSON.stringify(updated));
-      setFoundPawn({ ...foundPawn, status: newStatus });
-    }
-  };
+  const toggleStatus = async () => {
+  if (!foundPawn) return;
+  const newStatus = foundPawn.status === 'redeemed' ? 'active' : 'redeemed';
+  try {
+    const res = await fetch('/api/pawns', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: foundPawn.id, status: newStatus }),
+    });
+    const updated = await res.json();
+    setFoundPawn(updated);
+  } catch (err) {
+    console.error('Gagal update status:', err);
+    alert('Gagal update status. Coba lagi.');
+  }
+};
 
   const total = (p: Pawn) => parseFloat(p.loanAmount) * 1.1 - parseFloat(p.interestReduction) + parseFloat(p.penalty);
 
