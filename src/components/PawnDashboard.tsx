@@ -54,12 +54,11 @@ export default function PawnDashboard() {
 
   useEffect(() => {
     if (!localStorage.getItem('isLoggedIn')) { window.location.href = '/login'; return; }
-    const sp = localStorage.getItem('pawns_data');
+    fetch('/api/pawns')
+      .then(res => res.json())
+      .then((data: Pawn[]) => setPawns(data.map((pawn) => ({ ...pawn, status: pawn.status || 'active' }))))
+      .catch(err => console.error('Gagal ambil data pawns:', err));
     const sm = localStorage.getItem('members_data');
-    if (sp) {
-      const parsedPawns: Pawn[] = JSON.parse(sp);
-      setPawns(parsedPawns.map((pawn) => ({ ...pawn, status: pawn.status || 'active' })));
-    }
     if (sm) setMembers(JSON.parse(sm));
     const savedSettings = localStorage.getItem('app_settings');
     if (savedSettings) setSettingsData(JSON.parse(savedSettings));
@@ -68,22 +67,38 @@ export default function PawnDashboard() {
 
   useEffect(() => {
     if (!loading) {
-      localStorage.setItem('pawns_data', JSON.stringify(pawns));
       localStorage.setItem('members_data', JSON.stringify(members));
     }
-  }, [pawns, members, loading]);
+  }, [members, loading]);
 
-  const savePawn = (e: React.FormEvent) => {
+ const savePawn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedPawn) {
-      setPawns(pawns.map(p => p.id === selectedPawn.id ? { ...p, ...formData } : p));
-    } else {
-      const np: Pawn = { id: Date.now(), ...formData, accessCode: Math.random().toString(36).substring(2, 10).toUpperCase(), createdAt: Date.now() } as Pawn;
-      if (formData.memberId) {
-        const pts = Math.floor(parseFloat(formData.loanAmount) / 100000) * 2;
-        setMembers(members.map(m => m.id === formData.memberId ? { ...m, points: m.points + pts } : m));
+    try {
+      if (selectedPawn) {
+        const res = await fetch('/api/pawns', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: selectedPawn.id, ...formData }),
+        });
+        const updated = await res.json();
+        setPawns(pawns.map(p => p.id === selectedPawn.id ? updated : p));
+      } else {
+        const accessCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+        const res = await fetch('/api/pawns', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...formData, accessCode }),
+        });
+        const newPawn = await res.json();
+        if (formData.memberId) {
+          const pts = Math.floor(parseFloat(formData.loanAmount) / 100000) * 2;
+          setMembers(members.map(m => m.id === formData.memberId ? { ...m, points: m.points + pts } : m));
+        }
+        setPawns([newPawn, ...pawns]);
       }
-      setPawns([np, ...pawns]);
+    } catch (err) {
+      console.error('Gagal menyimpan data pawn:', err);
+      alert('Gagal menyimpan data. Coba lagi.');
     }
     setIsModalOpen(false); setSelectedPawn(null); setFormData(emptyPawnForm);
   };
@@ -98,14 +113,22 @@ export default function PawnDashboard() {
     setIsMemberModalOpen(false); setSelectedMember(null); setMemberForm(emptyMemberForm);
   };
 
-  const togglePawnStatus = (id: number) => {
-    setPawns(pawns.map((pawn) => {
-      if (pawn.id !== id) return pawn;
-      return {
-        ...pawn,
-        status: pawn.status === 'redeemed' ? 'active' : 'redeemed',
-      };
-    }));
+  const togglePawnStatus = async (id: number) => {
+    const pawn = pawns.find(p => p.id === id);
+    if (!pawn) return;
+    const newStatus = pawn.status === 'redeemed' ? 'active' : 'redeemed';
+    try {
+      const res = await fetch('/api/pawns', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: newStatus }),
+      });
+      const updated = await res.json();
+      setPawns(pawns.map((p) => (p.id === id ? updated : p)));
+    } catch (err) {
+      console.error('Gagal update status:', err);
+      alert('Gagal update status. Coba lagi.');
+    }
   };
 
   const interestRate = parseFloat(settingsData.interestRate) / 100;
@@ -426,7 +449,11 @@ export default function PawnDashboard() {
                         <div className="flex gap-1.5">
                           <button onClick={() => { setSelectedPawn(p); setIsQRModalOpen(true); }} className="p-1.5 text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100"><QrCode size={13} /></button>
                           <button onClick={() => { setSelectedPawn(p); setFormData({ date: p.date, name: p.name, phoneBrand: p.phoneBrand, loanAmount: p.loanAmount, interestReduction: p.interestReduction, penalty: p.penalty, memberId: p.memberId || '', status: p.status || 'active' }); setIsModalOpen(true); }} className="p-1.5 text-amber-600 bg-amber-50 rounded-md hover:bg-amber-100"><Edit size={13} /></button>
-                          <button onClick={() => setPawns(pawns.filter(x => x.id !== p.id))} className="p-1.5 text-red-600 bg-red-50 rounded-md hover:bg-red-100"><Trash2 size={13} /></button>
+                          <button onClick={async () => { 
+                            if (!confirm('Hapus data ini?')) return;  
+                            await fetch('/api/pawns', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: p.id }) });  
+                            setPawns(pawns.filter(x => x.id !== p.id)); 
+                            }} className="p-1.5 text-red-600 bg-red-50 rounded-md hover:bg-red-100"><Trash2 size={13} /></button>
                         </div>
                         <span className="text-[9px] text-slate-400 font-medium">{p.accessCode}</span>
                       </div>
@@ -471,7 +498,11 @@ export default function PawnDashboard() {
                             <div className="flex gap-0.5 md:gap-1">
                               <button onClick={() => { setSelectedPawn(p); setIsQRModalOpen(true); }} className="p-0.5 md:p-1 text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100"><QrCode size={12} /></button>
                               <button onClick={() => { setSelectedPawn(p); setFormData({ date: p.date, name: p.name, phoneBrand: p.phoneBrand, loanAmount: p.loanAmount, interestReduction: p.interestReduction, penalty: p.penalty, memberId: p.memberId || '', status: p.status || 'active' }); setIsModalOpen(true); }} className="p-0.5 md:p-1 text-amber-600 bg-amber-50 rounded-md hover:bg-amber-100"><Edit size={12} /></button>
-                              <button onClick={() => setPawns(pawns.filter(x => x.id !== p.id))} className="p-0.5 md:p-1 text-red-600 bg-red-50 rounded-md hover:bg-red-100"><Trash2 size={12} /></button>
+                              <button onClick={async () => {  
+                                if (!confirm('Hapus data ini?')) return;  
+                                await fetch('/api/pawns', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: p.id }) });  
+                                setPawns(pawns.filter(x => x.id !== p.id));
+                                }} className="p-0.5 md:p-1 text-red-600 bg-red-50 rounded-md hover:bg-red-100"><Trash2 size={12} /></button>
                             </div>
                           </td>
                         </tr>
