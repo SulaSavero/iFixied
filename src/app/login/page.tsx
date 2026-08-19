@@ -10,7 +10,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
@@ -28,22 +28,24 @@ export default function LoginPage() {
     }
 
     // Member login (using phone number as username and custom password)
-    const savedMembers = localStorage.getItem('members_data');
-    if (savedMembers) {
-      const members = JSON.parse(savedMembers);
-      // Check if user matches phone and either custom password OR phone (as default password)
-      const member = members.find((m: any) => 
-        m.phone === username && (m.password === password || (!m.password && m.phone === password))
-      );
-      
-      if (member) {
-        localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('userRole', 'member');
-        localStorage.setItem('memberId', member.id);
-        window.location.href = '/dashboard';
-        return;
-      }
-    }
+    try {
+     const res = await fetch('/api/members');
+     const members = await res.json();
+     // Check if user matches phone and either custom password OR phone (as default password)
+     const member = members.find((m: any) => 
+    m.phone === username && (m.password === password || (!m.password && m.phone === password))
+  );
+
+  if (member) {
+    localStorage.setItem('isLoggedIn', 'true');
+    localStorage.setItem('userRole', 'member');
+    localStorage.setItem('memberId', member.id);
+    window.location.href = '/dashboard';
+    return;
+  }
+} catch (err) {
+  console.error('Gagal cek data member:', err);
+}
 
     setError('Username atau password salah. (Untuk member: gunakan No. HP sebagai user & pass)');
     setLoading(false);

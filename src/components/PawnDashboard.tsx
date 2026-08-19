@@ -59,18 +59,15 @@ export default function PawnDashboard() {
       .then(res => res.json())
       .then((data: Pawn[]) => setPawns(data.map((pawn) => ({ ...pawn, status: pawn.status || 'active' }))))
       .catch(err => console.error('Gagal ambil data pawns:', err));
-    const sm = localStorage.getItem('members_data');
-    if (sm) setMembers(JSON.parse(sm));
+    fetch('/api/members')
+  .then(res => res.json())
+  .then((data: Member[]) => setMembers(data))
+  .catch(err => console.error('Gagal ambil data members:', err));
     const savedSettings = localStorage.getItem('app_settings');
     if (savedSettings) setSettingsData(JSON.parse(savedSettings));
     setLoading(false);
   }, []);
-
-  useEffect(() => {
-    if (!loading) {
-      localStorage.setItem('members_data', JSON.stringify(members));
-    }
-  }, [members, loading]);
+  
 
  const savePawn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,15 +104,32 @@ export default function PawnDashboard() {
     setIsModalOpen(false); setSelectedPawn(null); setFormData(emptyPawnForm);
   };
 
-  const saveMember = (e: React.FormEvent) => {
-    e.preventDefault();
+  const saveMember = async (e: React.FormEvent) => {
+  e.preventDefault();
+  try {
     if (selectedMember) {
-      setMembers(members.map(m => m.id === selectedMember.id ? { ...m, ...memberForm } : m));
+      const res = await fetch('/api/members', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: selectedMember.id, ...memberForm }),
+      });
+      const updated = await res.json();
+      setMembers(members.map(m => m.id === selectedMember.id ? updated : m));
     } else {
-      setMembers([...members, { id: 'M-' + Date.now().toString().slice(-6), ...memberForm }]);
+      const res = await fetch('/api/members', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: 'M-' + Date.now().toString().slice(-6), ...memberForm }),
+      });
+      const newMember = await res.json();
+      setMembers([...members, newMember]);
     }
     setIsMemberModalOpen(false); setSelectedMember(null); setMemberForm(emptyMemberForm);
-  };
+  } catch (err) {
+    console.error('Gagal simpan member:', err);
+    alert('Gagal menyimpan data. Coba lagi.');
+  }
+};
 
   const togglePawnStatus = async (id: number) => {
     const pawn = pawns.find(p => p.id === id);

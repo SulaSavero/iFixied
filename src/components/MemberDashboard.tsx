@@ -40,27 +40,20 @@ export default function MemberDashboard() {
     const memberId = localStorage.getItem('memberId');
     if (role !== 'member' || !memberId) { window.location.href = '/login'; return; }
 
-    const savedMembers = localStorage.getItem('members_data');
-    const savedPawns = localStorage.getItem('pawns_data');
-    const savedRedemptions = localStorage.getItem('redemptions_data');
-
-    if (savedMembers) {
-      const allMembers: Member[] = JSON.parse(savedMembers);
-      const currentMember = allMembers.find(m => m.id === memberId);
-      if (currentMember) {
-        setMember(currentMember);
-        setProfileData({ name: currentMember.name, password: currentMember.password || currentMember.phone });
-      }
+    Promise.all([
+  fetch('/api/members').then(res => res.json()),
+  fetch('/api/pawns').then(res => res.json()),
+])
+  .then(([allMembers, allPawns]: [Member[], Pawn[]]) => {
+    const currentMember = allMembers.find(m => m.id === memberId);
+    if (currentMember) {
+      setMember(currentMember);
+      setProfileData({ name: currentMember.name, password: currentMember.password || currentMember.phone });
     }
-    if (savedPawns) {
-      const allPawns: Pawn[] = JSON.parse(savedPawns);
-      setMyPawns(allPawns.filter(p => p.memberId === memberId).map((p) => ({ ...p, status: p.status || 'active' })));
-    }
-    if (savedRedemptions) {
-      const allRedemptions: Redemption[] = JSON.parse(savedRedemptions);
-      setRedemptions(allRedemptions.filter(r => r.memberId === memberId));
-    }
-    setLoading(false);
+    setMyPawns(allPawns.filter(p => p.memberId === memberId).map((p) => ({ ...p, status: p.status || 'active' })));
+  })
+  .catch(err => console.error('Gagal ambil data:', err))
+  .finally(() => setLoading(false));
   }, []);
 
   const calculateTotal = (p: Pawn) => parseFloat(p.loanAmount) * 1.1 - parseFloat(p.interestReduction) + parseFloat(p.penalty);
@@ -72,18 +65,24 @@ export default function MemberDashboard() {
     window.location.href = '/login';
   };
 
-  const handleSaveProfile = (e: React.FormEvent) => {
-    e.preventDefault();
-    const savedMembers = localStorage.getItem('members_data');
-    if (savedMembers && member) {
-      const allMembers: Member[] = JSON.parse(savedMembers);
-      const updated = allMembers.map(m => m.id === member.id ? { ...m, password: profileData.password } : m);
-      localStorage.setItem('members_data', JSON.stringify(updated));
-      setMember({ ...member, password: profileData.password });
-      setIsProfileModalOpen(false);
-      alert('Password berhasil diperbarui!');
-    }
-  };
+  const handleSaveProfile = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!member) return;
+  try {
+    const res = await fetch('/api/members', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: member.id, password: profileData.password }),
+    });
+    const updated = await res.json();
+    setMember(updated);
+    setIsProfileModalOpen(false);
+    alert('Password berhasil diperbarui!');
+  } catch (err) {
+    console.error('Gagal update profil:', err);
+    alert('Gagal menyimpan perubahan. Coba lagi.');
+  }
+};
 
   const openRedeemModal = (type: 'balance' | 'discount' | 'item') => {
     if (type === 'item') {

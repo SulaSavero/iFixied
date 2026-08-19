@@ -13,3 +13,10 @@ export const pawns = pgTable("pawns", {
   memberId: text("member_id"),
   createdAt: timestamp("created_at").defaultNow(),
 });
+export const members = pgTable("members", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  phone: text("phone").notNull(),
+  points: integer("points").default(0),
+  password: text("password"),
+});
