@@ -67,7 +67,7 @@ export default function PawnDashboard() {
     if (savedSettings) setSettingsData(JSON.parse(savedSettings));
     setLoading(false);
   }, []);
-  
+
 
  const savePawn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -571,7 +571,11 @@ export default function PawnDashboard() {
                           <td className="p-2 md:p-3 whitespace-nowrap">
                             <div className="flex gap-1">
                               <button onClick={() => { setSelectedMember(m); setMemberForm({ name: m.name, phone: m.phone, points: m.points, password: m.password || '' }); setIsMemberModalOpen(true); }} className="p-1 text-amber-600 bg-amber-50 rounded-lg hover:bg-amber-100"><Edit size={13} /></button>
-                              <button onClick={() => setMembers(members.filter(x => x.id !== m.id))} className="p-1 text-red-600 bg-red-50 rounded-lg hover:bg-red-100"><Trash2 size={13} /></button>
+                              <button onClick={async () => {
+                              if (!confirm('Hapus member ini?')) return;
+                              await fetch('/api/members', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: m.id }) });
+                              setMembers(members.filter(x => x.id !== m.id));
+                              }} className="p-1 text-red-600 bg-red-50 rounded-lg hover:bg-red-100"><Trash2 size={12} /></button>
                             </div>
                           </td>
                         </tr>
