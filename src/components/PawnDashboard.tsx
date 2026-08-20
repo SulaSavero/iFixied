@@ -10,6 +10,7 @@ import {
   ScanLine
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import * as XLSX from 'xlsx';
 
 interface Pawn {
   id: number; date: string; name: string; phoneBrand: string;
@@ -217,13 +218,32 @@ export default function PawnDashboard() {
   };
 
   const exportCSV = () => {
-    const h = 'No,Tanggal,Nama,Gadget,Pinjaman,Pot Bunga,Denda,Total,Status';
-    const r = pawns.map((p, i) => `${i+1},${p.date},${p.name},${p.phoneBrand},${p.loanAmount},${p.interestReduction},${p.penalty},${total(p)},${p.status === 'redeemed' ? 'Sudah Ditebus' : 'Aktif'}`);
-    const a = document.createElement('a');
-    a.href = encodeURI('data:text/csv;charset=utf-8,' + [h, ...r].join('\n'));
-    a.download = `laporan_${format(new Date(), 'yyyyMMdd')}.csv`;
-    a.click();
-  };
+  const exportData = pawns.map((p, i) => ({
+    'No': i + 1,
+    'Tanggal': p.date,
+    'Nama': p.name,
+    'Gadget': p.phoneBrand,
+    'Pinjaman': parseFloat(p.loanAmount),
+    'Pot Bunga': parseFloat(p.interestReduction || '0'),
+    'Denda': parseFloat(p.penalty || '0'),
+    'Total': parseFloat(p.loanAmount) * 1.1 - parseFloat(p.interestReduction || '0') + parseFloat(p.penalty || '0'),
+    'Status': p.status === 'active' ? 'Aktif' : 'Selesai',
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(exportData);
+
+  const headers = Object.keys(exportData[0] || {});
+  worksheet['!cols'] = headers.map((key) => ({
+    wch: Math.max(
+      key.length,
+      ...exportData.map((row) => String(row[key as keyof typeof row]).length)
+    ) + 2,
+  }));
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Data Gadaian');
+  XLSX.writeFile(workbook, `laporan_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+};
 
   const now = new Date();
   const mStart = startOfMonth(now);
