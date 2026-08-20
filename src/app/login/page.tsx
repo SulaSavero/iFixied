@@ -11,45 +11,30 @@ export default function LoginPage() {
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
+  e.preventDefault();
+  setLoading(true);
+  setError('');
 
-    // Get admin password from settings
-    const savedSettings = localStorage.getItem('app_settings');
-    const adminPassword = savedSettings ? JSON.parse(savedSettings).adminPassword : 'sula7852';
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    const data = await res.json();
 
-    // Admin login
-    if (username === 'admin' && password === adminPassword) {
-      localStorage.setItem('isLoggedIn', 'true');
-      localStorage.setItem('userRole', 'admin');
+    if (data.success) {
       window.location.href = '/dashboard';
-      return;
+    } else {
+      setError(data.message || 'Username atau password salah. (Untuk member: gunakan No. HP sebagai user & pass)');
+      setLoading(false);
     }
-
-    // Member login (using phone number as username and custom password)
-    try {
-     const res = await fetch('/api/members');
-     const members = await res.json();
-     // Check if user matches phone and either custom password OR phone (as default password)
-     const member = members.find((m: any) => 
-    m.phone === username && (m.password === password || (!m.password && m.phone === password))
-  );
-
-  if (member) {
-    localStorage.setItem('isLoggedIn', 'true');
-    localStorage.setItem('userRole', 'member');
-    localStorage.setItem('memberId', member.id);
-    window.location.href = '/dashboard';
-    return;
-  }
-} catch (err) {
-  console.error('Gagal cek data member:', err);
-}
-
-    setError('Username atau password salah. (Untuk member: gunakan No. HP sebagai user & pass)');
+  } catch (err) {
+    console.error('Gagal login:', err);
+    setError('Terjadi kesalahan. Coba lagi.');
     setLoading(false);
-  };
+  }
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">

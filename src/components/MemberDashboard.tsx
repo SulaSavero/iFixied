@@ -58,12 +58,13 @@ export default function MemberDashboard() {
 
   const calculateTotal = (p: Pawn) => parseFloat(p.loanAmount) * 1.1 - parseFloat(p.interestReduction) + parseFloat(p.penalty);
 
-  const handleLogout = () => {
-    localStorage.removeItem('isLoggedIn');
-    localStorage.removeItem('userRole');
-    localStorage.removeItem('memberId');
-    window.location.href = '/login';
-  };
+  const handleLogout = async () => {
+  await fetch('/api/logout', { method: 'POST' });
+  localStorage.removeItem('isLoggedIn');
+  localStorage.removeItem('userRole');
+  localStorage.removeItem('memberId');
+  window.location.href = '/login';
+};
 
   const handleSaveProfile = async (e: React.FormEvent) => {
   e.preventDefault();

@@ -1,22 +1,18 @@
-'use client';
-
-import { useEffect, useState } from 'react';
+import { redirect } from 'next/navigation';
+import { getSession } from '@/lib/auth';
 import PawnDashboard from '@/components/PawnDashboard';
 import MemberDashboard from '@/components/MemberDashboard';
 
-export default function DashboardPage() {
-  const [role, setRole] = useState<string | null>(null);
+export default async function DashboardPage() {
+  const session = await getSession();
 
-  useEffect(() => {
-    const userRole = localStorage.getItem('userRole');
-    setRole(userRole);
-  }, []);
-
-  if (!role) return <div className="p-8 text-center">Checking access...</div>;
+  if (!session) {
+    redirect('/login');
+  }
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {role === 'admin' ? <PawnDashboard /> : <MemberDashboard />}
+      {session.role === 'admin' ? <PawnDashboard /> : <MemberDashboard />}
     </div>
   );
 }

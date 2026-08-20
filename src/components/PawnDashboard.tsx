@@ -312,7 +312,7 @@ export default function PawnDashboard() {
             <div className="w-8 h-8 bg-blue-100 rounded-full flex-shrink-0 flex items-center justify-center text-blue-600 font-bold text-xs">A</div>
             <div className={`${sidebarCollapsed ? 'md:hidden' : ''}`}><p className="text-xs font-bold text-slate-800">Admin</p><p className="text-[10px] text-slate-400">Online</p></div>
           </div>
-          <button onClick={() => { localStorage.clear(); window.location.href = '/login'; }} className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-red-500 hover:bg-red-50 text-sm font-semibold ${sidebarCollapsed ? 'md:justify-center' : ''}`}>
+          <button onClick={async () => { await fetch('/api/logout', { method: 'POST' }); localStorage.clear(); window.location.href = '/login'; }} className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-red-500 hover:bg-red-50 text-sm font-semibold ${sidebarCollapsed ? 'md:justify-center' : ''}`}>
             <LogOut size={16} className="flex-shrink-0" />
             <span className={`${sidebarCollapsed ? 'md:hidden' : ''}`}>Logout</span>
           </button>
