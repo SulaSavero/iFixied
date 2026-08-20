@@ -94,7 +94,7 @@ export default function MemberDashboard() {
     setIsRedeemModalOpen(true);
   };
 
-  const handleRedeem = (e: React.FormEvent) => {
+  const handleRedeem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!member || !redeemType) return;
 
@@ -118,26 +118,21 @@ export default function MemberDashboard() {
       date: new Date().toISOString()
     };
 
-    // Update member points and balance/discount
-    const savedMembers = localStorage.getItem('members_data');
-    if (savedMembers) {
-      const allMembers: Member[] = JSON.parse(savedMembers);
-      const updatedMembers = allMembers.map(m => {
-        if (m.id === member.id) {
-          const newPoints = m.points - points;
-          if (redeemType === 'balance') {
-            return { ...m, points: newPoints, balance: (m.balance || 0) + value };
-          } else {
-            return { ...m, points: newPoints, discountCredit: (m.discountCredit || 0) + value };
-          }
-        }
-        return m;
-      });
-      localStorage.setItem('members_data', JSON.stringify(updatedMembers));
-      
-      const updatedMember = updatedMembers.find(m => m.id === member.id);
-      if (updatedMember) setMember(updatedMember);
-    }
+    // Update member points
+  try {
+   const newPoints = member.points - points;
+   const res = await fetch('/api/members', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: member.id, points: newPoints }),
+   });
+   const updatedMember = await res.json();
+   setMember(updatedMember);
+ } catch (err) {
+  console.error('Gagal update poin:', err);
+  alert('Gagal menukar poin. Coba lagi.');
+  return;
+ }
 
     // Save redemption history
     const savedRedemptions = localStorage.getItem('redemptions_data');

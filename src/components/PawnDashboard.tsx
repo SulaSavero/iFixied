@@ -90,9 +90,20 @@ export default function PawnDashboard() {
         });
         const newPawn = await res.json();
         if (formData.memberId) {
-          const pts = Math.floor(parseFloat(formData.loanAmount) / 100000) * 2;
-          setMembers(members.map(m => m.id === formData.memberId ? { ...m, points: m.points + pts } : m));
-        }
+  const pts = Math.floor(parseFloat(formData.loanAmount) / 100000);
+  if (pts > 0) {
+    const targetMember = members.find(m => m.id === formData.memberId);
+    if (targetMember) {
+      const memberRes = await fetch('/api/members', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: targetMember.id, points: (targetMember.points || 0) + pts }),
+      });
+      const updatedMember = await memberRes.json();
+      setMembers(members.map(m => m.id === updatedMember.id ? updatedMember : m));
+    }
+  }
+}
         setPawns([newPawn, ...pawns]);
       }
     } catch (err) {
