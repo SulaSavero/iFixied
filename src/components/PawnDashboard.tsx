@@ -54,7 +54,6 @@ export default function PawnDashboard() {
   });
 
   useEffect(() => {
-    if (!localStorage.getItem('isLoggedIn')) { window.location.href = '/login'; return; }
     fetch('/api/pawns')
       .then(res => res.json())
       .then((data: Pawn[]) => setPawns(data.map((pawn) => ({ ...pawn, status: pawn.status || 'active' }))))

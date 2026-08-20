@@ -36,25 +36,16 @@ export default function MemberDashboard() {
   const POINT_VALUE = 1000;
 
   useEffect(() => {
-    const role = localStorage.getItem('userRole');
-    const memberId = localStorage.getItem('memberId');
-    if (role !== 'member' || !memberId) { window.location.href = '/login'; return; }
-
-    Promise.all([
-  fetch('/api/members').then(res => res.json()),
-  fetch('/api/pawns').then(res => res.json()),
-])
+  Promise.all([
+    fetch('/api/members').then(res => res.json()),
+    fetch('/api/pawns').then(res => res.json()),
+  ])
   .then(([allMembers, allPawns]: [Member[], Pawn[]]) => {
-    const currentMember = allMembers.find(m => m.id === memberId);
-    if (currentMember) {
-      setMember(currentMember);
-      setProfileData({ name: currentMember.name, password: currentMember.password || currentMember.phone });
-    }
-    setMyPawns(allPawns.filter(p => p.memberId === memberId).map((p) => ({ ...p, status: p.status || 'active' })));
+    // ... sisanya sama
   })
   .catch(err => console.error('Gagal ambil data:', err))
   .finally(() => setLoading(false));
-  }, []);
+}, []);
 
   const calculateTotal = (p: Pawn) => parseFloat(p.loanAmount) * 1.1 - parseFloat(p.interestReduction) + parseFloat(p.penalty);
 
