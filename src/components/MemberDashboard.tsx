@@ -35,16 +35,25 @@ export default function MemberDashboard() {
   // Config: 1 poin = Rp 1000
   const POINT_VALUE = 1000;
 
-  useEffect(() => {
-  Promise.all([
-    fetch('/api/members').then(res => res.json()),
-    fetch('/api/pawns').then(res => res.json()),
-  ])
-  .then(([allMembers, allPawns]: [Member[], Pawn[]]) => {
-    // ... sisanya sama
-  })
-  .catch(err => console.error('Gagal ambil data:', err))
-  .finally(() => setLoading(false));
+ useEffect(() => {
+  fetch('/api/session')
+    .then(res => res.json())
+    .then(session => {
+      const memberId = session.userId;
+      return Promise.all([
+        fetch('/api/members').then(res => res.json()),
+        fetch('/api/pawns').then(res => res.json()),
+      ]).then(([allMembers, allPawns]: [Member[], Pawn[]]) => {
+        const currentMember = allMembers.find(m => m.id === memberId);
+        if (currentMember) {
+          setMember(currentMember);
+          setProfileData({ name: currentMember.name, password: currentMember.password || currentMember.phone });
+        }
+        setMyPawns(allPawns.filter(p => p.memberId === memberId).map((p) => ({ ...p, status: p.status || 'active' })));
+      });
+    })
+    .catch(err => console.error('Gagal ambil data:', err))
+    .finally(() => setLoading(false));
 }, []);
 
   const calculateTotal = (p: Pawn) => parseFloat(p.loanAmount) * 1.1 - parseFloat(p.interestReduction) + parseFloat(p.penalty);
