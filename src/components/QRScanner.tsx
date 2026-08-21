@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 import { useRouter } from 'next/navigation';
 import { Camera, X } from 'lucide-react';
 
@@ -10,40 +10,61 @@ export default function QRScanner() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const scanner = new Html5QrcodeScanner(
-      'reader',
-      { 
-        fps: 10, 
-        qrbox: { width: 250, height: 250 },
-        rememberLastUsedCamera: true,
-        aspectRatio: 1.0
-      },
-      /* verbose= */ false
-    );
+    const qrCode = new Html5Qrcode('reader');
+    let isStarted = false;
+    let isStopping = false;
+    let cancelled = false;
 
-    scanner.render(
-      (decodedText) => {
-        // Handle successfully scanned code
-        // Expecting a URL or just the code
-        let code = decodedText;
-        if (decodedText.includes('/view/')) {
-          code = decodedText.split('/view/').pop() || decodedText;
-        }
-        
-        scanner.clear().then(() => {
-          router.push(`/view/${code}`);
-        }).catch(err => {
-          console.error("Failed to clear scanner", err);
-          window.location.href = `/view/${code}`;
-        });
-      },
-      (errorMessage) => {
-        // parse error, ignore for now to avoid spam
+    const handleSuccess = (decodedText: string) => {
+      let code = decodedText;
+      if (decodedText.includes('/view/')) {
+        code = decodedText.split('/view/').pop() || decodedText;
       }
-    );
+      if (isStarted && !isStopping) {
+        isStopping = true;
+        qrCode
+          .stop()
+          .then(() => router.push(`/view/${code}`))
+          .catch(() => {
+            window.location.href = `/view/${code}`;
+          });
+      }
+    };
+
+    const config = { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
+
+    const startScanner = async () => {
+      try {
+        await qrCode.start({ facingMode: 'environment' }, config, handleSuccess, () => {});
+        if (cancelled) {
+          await qrCode.stop().catch(() => {});
+          return;
+        }
+        isStarted = true;
+      } catch (err) {
+        if (cancelled) return;
+        try {
+          await qrCode.start({ facingMode: 'user' }, config, handleSuccess, () => {});
+          if (cancelled) {
+            await qrCode.stop().catch(() => {});
+            return;
+          }
+          isStarted = true;
+        } catch (e) {
+          console.error('Gagal membuka kamera:', e);
+          setError('Tidak dapat mengakses kamera. Pastikan izin kamera sudah diberikan.');
+        }
+      }
+    };
+
+    startScanner();
 
     return () => {
-      scanner.clear().catch(err => console.error("Scanner cleanup failed", err));
+      cancelled = true;
+      if (isStarted && !isStopping) {
+        isStopping = true;
+        qrCode.stop().catch(() => {});
+      }
     };
   }, [router]);
 

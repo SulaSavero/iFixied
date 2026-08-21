@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 import { Camera, X, Smartphone, Calendar, User, ShieldCheck, CheckCircle, RotateCcw } from 'lucide-react';
 
 interface Pawn {
@@ -37,27 +37,62 @@ export default function AdminScanner() {
 }, []);
 
   useEffect(() => {
-    if (!scanning) return;
+  if (!scanning) return;
 
-    const scanner = new Html5QrcodeScanner(
-      'admin-reader',
-      { fps: 10, qrbox: { width: 250, height: 250 }, rememberLastUsedCamera: true, aspectRatio: 1.0 },
-      false
-    );
+  const qrCode = new Html5Qrcode('admin-reader');
+  let isStarted = false;
+  let isStopping = false;
+  let cancelled = false;
 
-    scanner.render(
-      (decodedText) => {
-        let code = decodedText;
-        if (decodedText.includes('/view/')) {
-          code = decodedText.split('/view/').pop() || decodedText;
+  const handleSuccess = (decodedText: string) => {
+    let code = decodedText;
+    if (decodedText.includes('/view/')) {
+      code = decodedText.split('/view/').pop() || decodedText;
+    }
+    if (isStarted && !isStopping) {
+      isStopping = true;
+      qrCode
+        .stop()
+        .then(() => lookupCode(code))
+        .catch(() => lookupCode(code));
+    }
+  };
+
+  const config = { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
+
+  const startScanner = async () => {
+    try {
+      await qrCode.start({ facingMode: 'environment' }, config, handleSuccess, () => {});
+      if (cancelled) {
+        await qrCode.stop().catch(() => {});
+        return;
+      }
+      isStarted = true;
+    } catch (err) {
+      if (cancelled) return;
+      try {
+        await qrCode.start({ facingMode: 'user' }, config, handleSuccess, () => {});
+        if (cancelled) {
+          await qrCode.stop().catch(() => {});
+          return;
         }
-        scanner.clear().then(() => lookupCode(code)).catch(() => lookupCode(code));
-      },
-      () => {}
-    );
+        isStarted = true;
+      } catch (e) {
+        console.error('Gagal membuka kamera:', e);
+      }
+    }
+  };
 
-    return () => { scanner.clear().catch(() => {}); };
-  }, [scanning, lookupCode]);
+  startScanner();
+
+  return () => {
+    cancelled = true;
+    if (isStarted && !isStopping) {
+      isStopping = true;
+      qrCode.stop().catch(() => {});
+    }
+  };
+}, [scanning, lookupCode]);
 
   const toggleStatus = async () => {
   if (!foundPawn) return;

@@ -26,16 +26,15 @@ export default function ViewPawnPage() {
   useEffect(() => {
     if (!code) return;
     
-    fetch('/api/pawns')
-  .then(res => res.json())
-  .then((allPawns: Pawn[]) => {
-    const found = allPawns.find(p => p.accessCode === code);
-    if (found) {
-      setPawn({ ...found, status: found.status || 'active' });
-    } else {
-      setError('Data tidak ditemukan');
-    }
+    fetch(`/api/pawns/public/${code}`)
+  .then(res => {
+    if (!res.ok) throw new Error('not found');
+    return res.json();
   })
+  .then((found: Pawn) => {
+    setPawn({ ...found, status: found.status || 'active' });
+  })
+  
   .catch(err => {
     console.error('Gagal ambil data:', err);
     setError('Gagal memuat data');

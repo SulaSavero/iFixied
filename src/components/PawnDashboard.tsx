@@ -7,7 +7,7 @@ import {
   Smartphone, TrendingUp, Users, Star, LayoutDashboard,
   Menu, X, PieChart, Calendar, DollarSign, Wallet, Save, Package,
   Settings, Lock, Store, Percent, Gift, Database, Upload, Trash, Eye, EyeOff,
-  ScanLine
+  ScanLine, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import * as XLSX from 'xlsx';
@@ -36,6 +36,15 @@ export default function PawnDashboard() {
   const [selectedPawn, setSelectedPawn] = useState<Pawn | null>(null);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
+  // Bulan yang sedang dipilih untuk tab Data Gadaian
+  const [selectedMonth, setSelectedMonth] = useState(new Date());
+  const goToPrevMonth = () => {
+    setSelectedMonth(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() - 1, 1));
+  };
+  const goToNextMonth = () => {
+    setSelectedMonth(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 1));
+  };
+
   const emptyPawnForm = { date: new Date().toISOString().split('T')[0], name: '', phoneBrand: '', loanAmount: '', interestReduction: '0', penalty: '0', memberId: '', status: 'active' };
   const emptyMemberForm = { name: '', phone: '', points: 0, password: '' };
   const [formData, setFormData] = useState(emptyPawnForm);
@@ -60,16 +69,16 @@ export default function PawnDashboard() {
       .then((data: Pawn[]) => setPawns(data.map((pawn) => ({ ...pawn, status: pawn.status || 'active' }))))
       .catch(err => console.error('Gagal ambil data pawns:', err));
     fetch('/api/members')
-  .then(res => res.json())
-  .then((data: Member[]) => setMembers(data))
-  .catch(err => console.error('Gagal ambil data members:', err));
+      .then(res => res.json())
+      .then((data: Member[]) => setMembers(data))
+      .catch(err => console.error('Gagal ambil data members:', err));
     const savedSettings = localStorage.getItem('app_settings');
     if (savedSettings) setSettingsData(JSON.parse(savedSettings));
     setLoading(false);
   }, []);
 
 
- const savePawn = async (e: React.FormEvent) => {
+  const savePawn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
     try {
@@ -90,20 +99,20 @@ export default function PawnDashboard() {
         });
         const newPawn = await res.json();
         if (formData.memberId) {
-  const pts = Math.floor(parseFloat(formData.loanAmount) / 100000);
-  if (pts > 0) {
-    const targetMember = members.find(m => m.id === formData.memberId);
-    if (targetMember) {
-      const memberRes = await fetch('/api/members', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: targetMember.id, points: (targetMember.points || 0) + pts }),
-      });
-      const updatedMember = await memberRes.json();
-      setMembers(members.map(m => m.id === updatedMember.id ? updatedMember : m));
-    }
-  }
-}
+          const pts = Math.floor(parseFloat(formData.loanAmount) / 100000);
+          if (pts > 0) {
+            const targetMember = members.find(m => m.id === formData.memberId);
+            if (targetMember) {
+              const memberRes = await fetch('/api/members', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: targetMember.id, points: (targetMember.points || 0) + pts }),
+              });
+              const updatedMember = await memberRes.json();
+              setMembers(members.map(m => m.id === updatedMember.id ? updatedMember : m));
+            }
+          }
+        }
         setPawns([newPawn, ...pawns]);
       }
     } catch (err) {
@@ -116,31 +125,31 @@ export default function PawnDashboard() {
   };
 
   const saveMember = async (e: React.FormEvent) => {
-  e.preventDefault();
-  try {
-    if (selectedMember) {
-      const res = await fetch('/api/members', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: selectedMember.id, ...memberForm }),
-      });
-      const updated = await res.json();
-      setMembers(members.map(m => m.id === selectedMember.id ? updated : m));
-    } else {
-      const res = await fetch('/api/members', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: 'M-' + Date.now().toString().slice(-6), ...memberForm }),
-      });
-      const newMember = await res.json();
-      setMembers([...members, newMember]);
+    e.preventDefault();
+    try {
+      if (selectedMember) {
+        const res = await fetch('/api/members', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: selectedMember.id, ...memberForm }),
+        });
+        const updated = await res.json();
+        setMembers(members.map(m => m.id === selectedMember.id ? updated : m));
+      } else {
+        const res = await fetch('/api/members', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: 'M-' + Date.now().toString().slice(-6), ...memberForm }),
+        });
+        const newMember = await res.json();
+        setMembers([...members, newMember]);
+      }
+      setIsMemberModalOpen(false); setSelectedMember(null); setMemberForm(emptyMemberForm);
+    } catch (err) {
+      console.error('Gagal simpan member:', err);
+      alert('Gagal menyimpan data. Coba lagi.');
     }
-    setIsMemberModalOpen(false); setSelectedMember(null); setMemberForm(emptyMemberForm);
-  } catch (err) {
-    console.error('Gagal simpan member:', err);
-    alert('Gagal menyimpan data. Coba lagi.');
-  }
-};
+  };
 
   const togglePawnStatus = async (id: number) => {
     const pawn = pawns.find(p => p.id === id);
@@ -218,32 +227,32 @@ export default function PawnDashboard() {
   };
 
   const exportCSV = () => {
-  const exportData = pawns.map((p, i) => ({
-    'No': i + 1,
-    'Tanggal': p.date,
-    'Nama': p.name,
-    'Gadget': p.phoneBrand,
-    'Pinjaman': parseFloat(p.loanAmount),
-    'Pot Bunga': parseFloat(p.interestReduction || '0'),
-    'Denda': parseFloat(p.penalty || '0'),
-    'Total': parseFloat(p.loanAmount) * 1.1 - parseFloat(p.interestReduction || '0') + parseFloat(p.penalty || '0'),
-    'Status': p.status === 'active' ? 'Aktif' : 'Selesai',
-  }));
+    const exportData = pawns.map((p, i) => ({
+      'No': i + 1,
+      'Tanggal': p.date,
+      'Nama': p.name,
+      'Gadget': p.phoneBrand,
+      'Pinjaman': parseFloat(p.loanAmount),
+      'Pot Bunga': parseFloat(p.interestReduction || '0'),
+      'Denda': parseFloat(p.penalty || '0'),
+      'Total': parseFloat(p.loanAmount) * 1.1 - parseFloat(p.interestReduction || '0') + parseFloat(p.penalty || '0'),
+      'Status': p.status === 'active' ? 'Aktif' : 'Selesai',
+    }));
 
-  const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
 
-  const headers = Object.keys(exportData[0] || {});
-  worksheet['!cols'] = headers.map((key) => ({
-    wch: Math.max(
-      key.length,
-      ...exportData.map((row) => String(row[key as keyof typeof row]).length)
-    ) + 2,
-  }));
+    const headers = Object.keys(exportData[0] || {});
+    worksheet['!cols'] = headers.map((key) => ({
+      wch: Math.max(
+        key.length,
+        ...exportData.map((row) => String(row[key as keyof typeof row]).length)
+      ) + 2,
+    }));
 
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Data Gadaian');
-  XLSX.writeFile(workbook, `laporan_${format(new Date(), 'yyyyMMdd')}.xlsx`);
-};
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Data Gadaian');
+    XLSX.writeFile(workbook, `laporan_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+  };
 
   const now = new Date();
   const mStart = startOfMonth(now);
@@ -255,7 +264,13 @@ export default function PawnDashboard() {
   const mReduction = mPawns.reduce((a, p) => a + parseFloat(p.interestReduction), 0);
   const mNet = mProfit + mPenalty - mReduction;
 
-  const fPawns = pawns.filter(p => p.name.toLowerCase().includes(search.toLowerCase()) || p.phoneBrand.toLowerCase().includes(search.toLowerCase()));
+  // Data gadaian difilter berdasarkan bulan yang dipilih di tab "Data Gadaian"
+  const pawnsMonthStart = startOfMonth(selectedMonth);
+  const pawnsMonthEnd = endOfMonth(selectedMonth);
+  const fPawns = pawns
+    .filter(p => isWithinInterval(new Date(p.date), { start: pawnsMonthStart, end: pawnsMonthEnd }))
+    .filter(p => p.name.toLowerCase().includes(search.toLowerCase()) || p.phoneBrand.toLowerCase().includes(search.toLowerCase()));
+
   const fMembers = members.filter(m => m.name.toLowerCase().includes(search.toLowerCase()) || m.phone.includes(search));
 
   const navTo = (tab: typeof activeTab) => { setActiveTab(tab); setSidebarOpen(false); setSearch(''); };
@@ -444,6 +459,20 @@ export default function PawnDashboard() {
                   <Plus size={16} /> Tambah
                 </button>
               </div>
+
+              {/* Selector Bulan */}
+              <div className="flex items-center justify-center gap-3 bg-white rounded-2xl border border-slate-100 shadow-sm p-3">
+                <button onClick={goToPrevMonth} className="p-2 hover:bg-slate-100 rounded-lg text-slate-600">
+                  <ChevronLeft size={18} />
+                </button>
+                <span className="text-sm font-black text-slate-800 min-w-[140px] text-center capitalize">
+                  {format(selectedMonth, 'MMMM yyyy')}
+                </span>
+                <button onClick={goToNextMonth} className="p-2 hover:bg-slate-100 rounded-lg text-slate-600">
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+
               <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                 <div className="p-2.5 md:p-4 border-b border-slate-50">
                   <div className="relative max-w-sm">
@@ -454,7 +483,7 @@ export default function PawnDashboard() {
                 <div className="md:hidden p-2.5 space-y-2.5 bg-slate-50/40">
                   {fPawns.length === 0 && (
                     <div className="rounded-xl bg-white border border-slate-100 p-6 text-center text-[11px] text-slate-400">
-                      Tidak ada data
+                      Tidak ada data di bulan ini
                     </div>
                   )}
                   {fPawns.map((p) => (
@@ -555,7 +584,7 @@ export default function PawnDashboard() {
                           </td>
                         </tr>
                       ))}
-                      {fPawns.length === 0 && <tr><td colSpan={8} className="p-10 text-center text-slate-400 text-xs">Tidak ada data</td></tr>}
+                      {fPawns.length === 0 && <tr><td colSpan={8} className="p-10 text-center text-slate-400 text-xs">Tidak ada data di bulan ini</td></tr>}
                     </tbody>
                   </table>
                 </div>
@@ -573,16 +602,57 @@ export default function PawnDashboard() {
                 </button>
               </div>
               <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                <div className="p-3 md:p-4 border-b border-slate-50">
+                <div className="p-2.5 md:p-4 border-b border-slate-50">
                   <div className="relative max-w-sm">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
-                    <input type="text" placeholder="Cari member..." className="w-full pl-8 pr-3 py-2 bg-slate-50 rounded-xl text-[11px] md:text-sm outline-none focus:ring-2 focus:ring-blue-500" value={search} onChange={e => setSearch(e.target.value)} />
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                    <input type="text" placeholder="Cari member..." className="w-full pl-7 pr-3 py-1.5 md:py-2 bg-slate-50 rounded-xl text-[10px] md:text-sm outline-none focus:ring-2 focus:ring-blue-500" value={search} onChange={e => setSearch(e.target.value)} />
                   </div>
                 </div>
-                <div className="px-3 py-1.5 text-[9px] text-slate-400 border-b border-slate-50 md:hidden">
-                  Geser tabel ke kiri / kanan untuk melihat semua data.
+
+                {/* Mobile: Kartu */}
+                <div className="md:hidden p-2.5 space-y-2.5 bg-slate-50/40">
+                  {fMembers.length === 0 && (
+                    <div className="rounded-xl bg-white border border-slate-100 p-6 text-center text-[11px] text-slate-400">
+                      Tidak ada member
+                    </div>
+                  )}
+                  {fMembers.map((m) => (
+                    <div key={m.id} className="rounded-xl bg-white border border-slate-100 p-3 shadow-sm space-y-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-black text-slate-900 truncate">{m.name}</p>
+                          <p className="text-[10px] text-slate-500 truncate">{m.phone}</p>
+                        </div>
+                        <span className="flex items-center gap-1 text-emerald-600 font-bold text-[10px] whitespace-nowrap">
+                          <Star size={12} fill="currentColor" />{m.points}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-[10px] leading-tight">
+                        <div>
+                          <p className="text-slate-400 font-semibold uppercase">ID</p>
+                          <p className="text-slate-700 font-mono font-bold truncate">{m.id}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-400 font-semibold uppercase">Poin</p>
+                          <p className="text-slate-700 font-bold">{m.points}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-slate-50">
+                        <button onClick={() => { setSelectedMember(m); setMemberForm({ name: m.name, phone: m.phone, points: m.points, password: m.password || '' }); setIsMemberModalOpen(true); }} className="p-1.5 text-amber-600 bg-amber-50 rounded-md hover:bg-amber-100"><Edit size={13} /></button>
+                        <button onClick={async () => {
+                          if (!confirm('Hapus member ini?')) return;
+                          await fetch('/api/members', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: m.id }) });
+                          setMembers(members.filter(x => x.id !== m.id));
+                        }} className="p-1.5 text-red-600 bg-red-50 rounded-md hover:bg-red-100"><Trash2 size={13} /></button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="overflow-x-auto touch-pan-x [scrollbar-width:thin]">
+
+                {/* Desktop: Tabel */}
+                <div className="hidden md:block overflow-x-auto touch-pan-x [scrollbar-width:thin]">
                   <table className="min-w-[600px] w-full text-[10px] md:text-sm">
                     <thead><tr className="bg-slate-50 text-slate-500 text-[9px] md:text-xs">
                       <th className="text-left p-2 md:p-3 font-semibold whitespace-nowrap">ID</th>

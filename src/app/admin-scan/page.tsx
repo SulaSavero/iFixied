@@ -7,12 +7,18 @@ export default function AdminScanPage() {
   const [authorized, setAuthorized] = useState(false);
 
   useEffect(() => {
-    const role = localStorage.getItem('userRole');
-    if (role !== 'admin') {
-      window.location.href = '/login';
-    } else {
-      setAuthorized(true);
-    }
+    fetch('/api/session')
+      .then(res => res.json())
+      .then(session => {
+        if (session.role !== 'admin') {
+          window.location.href = '/login';
+        } else {
+          setAuthorized(true);
+        }
+      })
+      .catch(() => {
+        window.location.href = '/login';
+      });
   }, []);
 
   if (!authorized) return null;
