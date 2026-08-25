@@ -92,7 +92,7 @@ export default function ViewPawnPage() {
               <div className="bg-slate-100 p-2 rounded-lg"><Calendar className="w-5 h-5 text-slate-500" /></div>
               <div>
                 <p className="text-[10px] text-slate-400 uppercase font-bold">Tanggal Gadai</p>
-                <p className="font-semibold text-slate-700">{pawn.date}</p>
+                <p className="font-semibold text-slate-700">{new Date(pawn.date).toLocaleString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
               </div>
             </div>
 

@@ -7,7 +7,7 @@ import {
   Smartphone, TrendingUp, Users, Star, LayoutDashboard,
   Menu, X, PieChart, Calendar, DollarSign, Wallet, Save, Package,
   Settings, Lock, Store, Percent, Gift, Database, Upload, Trash, Eye, EyeOff,
-  ScanLine, ChevronLeft, ChevronRight
+  ScanLine, AlertCircle, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import * as XLSX from 'xlsx';
@@ -19,6 +19,12 @@ interface Pawn {
 }
 interface Member {
   id: string; name: string; phone: string; points: number; password?: string;
+}
+
+function getLocalDateTimeString() {
+  const now = new Date();
+  const offset = now.getTimezoneOffset() * 60000;
+  return new Date(now.getTime() - offset).toISOString().slice(0, 16);
 }
 
 export default function PawnDashboard() {
@@ -45,7 +51,7 @@ export default function PawnDashboard() {
     setSelectedMonth(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 1));
   };
 
-  const emptyPawnForm = { date: new Date().toISOString().split('T')[0], name: '', phoneBrand: '', loanAmount: '', interestReduction: '0', penalty: '0', memberId: '', status: 'active' };
+  const emptyPawnForm = { date: getLocalDateTimeString(), name: '', phoneBrand: '', loanAmount: '', interestReduction: '0', penalty: '0', memberId: '', status: 'active' };
   const emptyMemberForm = { name: '', phone: '', points: 0, password: '' };
   const [formData, setFormData] = useState(emptyPawnForm);
   const [memberForm, setMemberForm] = useState(emptyMemberForm);
@@ -64,29 +70,38 @@ export default function PawnDashboard() {
   });
 
   useEffect(() => {
-    fetch('/api/pawns')
-      .then(res => res.json())
-      .then((data: Pawn[]) => setPawns(data.map((pawn) => ({ ...pawn, status: pawn.status || 'active' }))))
-      .catch(err => console.error('Gagal ambil data pawns:', err));
-    fetch('/api/members')
-      .then(res => res.json())
-      .then((data: Member[]) => setMembers(data))
-      .catch(err => console.error('Gagal ambil data members:', err));
     const savedSettings = localStorage.getItem('app_settings');
     if (savedSettings) setSettingsData(JSON.parse(savedSettings));
-    setLoading(false);
+
+    Promise.all([
+      fetch('/api/pawns')
+        .then(res => res.json())
+        .then((data: Pawn[]) => setPawns(data.map((pawn) => ({ ...pawn, status: pawn.status || 'active' }))))
+        .catch(err => console.error('Gagal ambil data pawns:', err)),
+      fetch('/api/members')
+        .then(res => res.json())
+        .then((data: Member[]) => setMembers(data))
+        .catch(err => console.error('Gagal ambil data members:', err)),
+    ]).finally(() => setLoading(false));
   }, []);
 
 
   const savePawn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
+    // Cegah field angka kosong tersimpan sebagai '' (nanti jadi NaN saat dihitung)
+    const safeFormData = {
+      ...formData,
+      loanAmount: formData.loanAmount === '' || isNaN(parseFloat(formData.loanAmount)) ? '0' : formData.loanAmount,
+      interestReduction: formData.interestReduction === '' || isNaN(parseFloat(formData.interestReduction)) ? '0' : formData.interestReduction,
+      penalty: formData.penalty === '' || isNaN(parseFloat(formData.penalty)) ? '0' : formData.penalty,
+    };
     try {
       if (selectedPawn) {
         const res = await fetch('/api/pawns', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: selectedPawn.id, ...formData }),
+          body: JSON.stringify({ id: selectedPawn.id, ...safeFormData }),
         });
         const updated = await res.json();
         setPawns(pawns.map(p => p.id === selectedPawn.id ? updated : p));
@@ -95,13 +110,13 @@ export default function PawnDashboard() {
         const res = await fetch('/api/pawns', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...formData, accessCode }),
+          body: JSON.stringify({ ...safeFormData, accessCode }),
         });
         const newPawn = await res.json();
-        if (formData.memberId) {
-          const pts = Math.floor(parseFloat(formData.loanAmount) / 100000);
+        if (safeFormData.memberId) {
+          const pts = Math.floor(parseFloat(safeFormData.loanAmount) / 100000);
           if (pts > 0) {
-            const targetMember = members.find(m => m.id === formData.memberId);
+            const targetMember = members.find(m => m.id === safeFormData.memberId);
             if (targetMember) {
               const memberRes = await fetch('/api/members', {
                 method: 'PUT',
@@ -168,9 +183,47 @@ export default function PawnDashboard() {
       alert('Gagal update status. Coba lagi.');
     }
   };
+  
+  const addDenda = async (p: Pawn) => {
+  const amount = prompt('Tambah denda berapa? (Rp)');
+  if (!amount || isNaN(parseFloat(amount))) return;
+  const newPenalty = parseFloat(p.penalty || '0') + parseFloat(amount);
+  try {
+    const res = await fetch('/api/pawns', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: p.id, penalty: String(newPenalty) }),
+    });
+    const updated = await res.json();
+    setPawns(pawns.map(x => x.id === p.id ? updated : x));
+  } catch (err) {
+    console.error('Gagal tambah denda:', err);
+    alert('Gagal menambah denda. Coba lagi.');
+  }
+};
 
   const interestRate = parseFloat(settingsData.interestRate) / 100;
-  const total = (p: Pawn) => parseFloat(p.loanAmount) * (1 + interestRate) - parseFloat(p.interestReduction) + parseFloat(p.penalty);
+  // Anti-NaN: field lama yang kosong ('') di database tidak akan merusak tampilan Total lagi
+  const total = (p: Pawn) => {
+    const loan = parseFloat(p.loanAmount) || 0;
+    const reduction = parseFloat(p.interestReduction) || 0;
+    const penalty = parseFloat(p.penalty) || 0;
+    return loan * (1 + interestRate) - reduction + penalty;
+  };
+  const isOverdue = (p: Pawn) => {
+  if (p.status === 'redeemed') return false;
+  const daysSince = (new Date().getTime() - new Date(p.date).getTime()) / (1000 * 60 * 60 * 24);
+  return daysSince > 30;
+};
+const overduePawns = pawns.filter(isOverdue);
+
+  // Uang yang masih terpendam (modal di gadaian aktif) vs uang yang sudah kembali (modal di gadaian sudah ditebus)
+  const activePawnsAll = pawns.filter(p => p.status !== 'redeemed');
+  const redeemedPawnsAll = pawns.filter(p => p.status === 'redeemed');
+  const uangTerpendam = activePawnsAll.reduce((a, p) => a + (parseFloat(p.loanAmount) || 0), 0);
+  const uangKembali = redeemedPawnsAll.reduce((a, p) => a + (parseFloat(p.loanAmount) || 0), 0);
+  const totalModalBeredar = uangTerpendam + uangKembali;
+  const persenKembali = totalModalBeredar > 0 ? (uangKembali / totalModalBeredar) * 100 : 0;
 
   const saveSettings = () => {
     localStorage.setItem('app_settings', JSON.stringify(settingsData));
@@ -258,22 +311,40 @@ export default function PawnDashboard() {
   const mStart = startOfMonth(now);
   const mEnd = endOfMonth(now);
   const mPawns = pawns.filter(p => isWithinInterval(new Date(p.date), { start: mStart, end: mEnd }));
-  const mLoan = mPawns.reduce((a, p) => a + parseFloat(p.loanAmount), 0);
-  const mProfit = mPawns.reduce((a, p) => a + parseFloat(p.loanAmount) * 0.1, 0);
-  const mPenalty = mPawns.reduce((a, p) => a + parseFloat(p.penalty), 0);
-  const mReduction = mPawns.reduce((a, p) => a + parseFloat(p.interestReduction), 0);
+  const mLoan = mPawns.reduce((a, p) => a + (parseFloat(p.loanAmount) || 0), 0);
+  const mProfit = mPawns.reduce((a, p) => a + (parseFloat(p.loanAmount) || 0) * 0.1, 0);
+  const mPenalty = mPawns.reduce((a, p) => a + (parseFloat(p.penalty) || 0), 0);
+  const mReduction = mPawns.reduce((a, p) => a + (parseFloat(p.interestReduction) || 0), 0);
   const mNet = mProfit + mPenalty - mReduction;
 
   // Data gadaian difilter berdasarkan bulan yang dipilih di tab "Data Gadaian"
   const pawnsMonthStart = startOfMonth(selectedMonth);
   const pawnsMonthEnd = endOfMonth(selectedMonth);
   const fPawns = pawns
-    .filter(p => isWithinInterval(new Date(p.date), { start: pawnsMonthStart, end: pawnsMonthEnd }))
-    .filter(p => p.name.toLowerCase().includes(search.toLowerCase()) || p.phoneBrand.toLowerCase().includes(search.toLowerCase()));
+  .filter(p => isWithinInterval(new Date(p.date), { start: pawnsMonthStart, end: pawnsMonthEnd }))
+  .filter(p =>
+    p.name.toLowerCase().includes(search.toLowerCase()) ||
+    p.phoneBrand.toLowerCase().includes(search.toLowerCase()) ||
+    p.date.includes(search) || format(new Date(p.date), 'dd MMM yyyy').toLowerCase().includes(search.toLowerCase())
+  )
+  .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   const fMembers = members.filter(m => m.name.toLowerCase().includes(search.toLowerCase()) || m.phone.includes(search));
 
   const navTo = (tab: typeof activeTab) => { setActiveTab(tab); setSidebarOpen(false); setSearch(''); };
+  const goToOverdue = () => {
+  const target = overduePawns[0];
+  if (target) {
+    setSelectedMonth(new Date(target.date));
+  }
+  setActiveTab('pawns');
+  setSidebarOpen(false);
+  setSearch('');
+  setTimeout(() => {
+    const el = document.getElementById(`pawn-${target?.id}`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 150);
+  };
 
   const SidebarLink = ({ id, label, icon: Icon }: { id: typeof activeTab; label: string; icon: any }) => (
     <button 
@@ -285,6 +356,49 @@ export default function PawnDashboard() {
       <span className={`truncate ${sidebarCollapsed ? 'md:hidden' : ''}`}>{label}</span>
     </button>
   );
+
+  if (loading) {
+    return (
+      <div className="h-screen flex overflow-hidden bg-slate-50">
+        <aside className="hidden md:flex md:w-60 flex-col bg-white border-r border-slate-100 p-4 space-y-2">
+          <div className="h-9 w-32 bg-slate-100 rounded-xl animate-pulse mb-4" />
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="h-10 bg-slate-100 rounded-xl animate-pulse" />
+          ))}
+        </aside>
+        <div className="flex-1 flex flex-col min-w-0">
+          <div className="h-14 bg-white border-b border-slate-100 shrink-0" />
+          <main className="flex-1 overflow-hidden p-4 md:p-6 lg:p-8">
+            <div className="max-w-6xl mx-auto space-y-6">
+              <div className="space-y-2">
+                <div className="h-6 w-64 bg-slate-200 rounded-lg animate-pulse" />
+                <div className="h-3 w-48 bg-slate-100 rounded-lg animate-pulse" />
+              </div>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                {[1, 2, 3, 4].map(i => (
+                  <div key={i} className="bg-white p-4 md:p-5 rounded-2xl border border-slate-100 shadow-sm space-y-3">
+                    <div className="w-9 h-9 rounded-xl bg-slate-100 animate-pulse" />
+                    <div className="h-2.5 w-16 bg-slate-100 rounded animate-pulse" />
+                    <div className="h-4 w-24 bg-slate-200 rounded animate-pulse" />
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+                {[1, 2].map(i => (
+                  <div key={i} className="bg-white p-5 md:p-6 rounded-2xl border border-slate-100 shadow-sm space-y-3">
+                    <div className="h-5 w-40 bg-slate-200 rounded animate-pulse mb-4" />
+                    {[1, 2, 3].map(j => (
+                      <div key={j} className="h-12 bg-slate-100 rounded-xl animate-pulse" />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen flex overflow-hidden bg-slate-50">
@@ -392,6 +506,50 @@ export default function PawnDashboard() {
                 ))}
               </div>
 
+              {overduePawns.length > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center gap-3">
+                  <div className="bg-red-100 p-2.5 rounded-xl text-red-600">
+                   <AlertCircle size={20} />
+                    </div>
+                     <div className="flex-1">
+                     <p className="text-sm font-black text-red-700">Lewat {overduePawns.length} HP</p>
+                    <p className="text-[10px] text-red-500">Sudah lebih dari 1 bulan, segera hubungi pelanggan</p>
+                   </div>
+                  <button onClick={goToOverdue} className="text-[10px] font-bold text-red-600 uppercase tracking-wider hover:underline">Lihat</button>
+                 </div>
+              )}
+
+              {/* Perputaran Modal: Uang Kembali vs Uang Terpendam */}
+              <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-100 shadow-sm">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-indigo-600 p-2.5 rounded-xl text-white"><Wallet size={20} /></div>
+                    <h4 className="text-base md:text-lg font-black text-slate-900">Perputaran Modal</h4>
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Semua Waktu</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                  <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100">
+                    <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1">Uang Kembali</p>
+                    <p className="text-lg font-black text-emerald-700">Rp {uangKembali.toLocaleString()}</p>
+                    <p className="text-[9px] text-emerald-500 mt-1">{redeemedPawnsAll.length} unit sudah ditebus</p>
+                  </div>
+                  <div className="p-4 bg-amber-50 rounded-xl border border-amber-100">
+                    <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-1">Uang Terpendam</p>
+                    <p className="text-lg font-black text-amber-700">Rp {uangTerpendam.toLocaleString()}</p>
+                    <p className="text-[9px] text-amber-500 mt-1">{activePawnsAll.length} unit belum ditebus</p>
+                  </div>
+                </div>
+
+                <div className="w-full h-2.5 bg-amber-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-emerald-500" style={{ width: `${persenKembali}%` }} />
+                </div>
+                <p className="text-[10px] text-slate-400 mt-2 text-center">
+                  {persenKembali.toFixed(1)}% modal sudah kembali dari total Rp {totalModalBeredar.toLocaleString()}
+                </p>
+              </div>
+
               {/* Profit Breakdown + Recent */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
                 <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-100 shadow-sm">
@@ -487,21 +645,21 @@ export default function PawnDashboard() {
                     </div>
                   )}
                   {fPawns.map((p) => (
-                    <div key={p.id} className="rounded-xl bg-white border border-slate-100 p-3 shadow-sm space-y-2.5">
+                    <div key={p.id} id={`pawn-${p.id}`} className={`rounded-xl bg-white border p-3 shadow-sm space-y-2.5 ${isOverdue(p) ? 'border-red-300 ring-2 ring-red-100' : 'border-slate-100'}`}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="text-[11px] font-black text-slate-900 truncate">{p.name}</p>
                           <p className="text-[10px] text-slate-500 truncate">{p.phoneBrand}</p>
                         </div>
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[8px] font-bold whitespace-nowrap ${p.status === 'redeemed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                          {p.status === 'redeemed' ? 'Ditebus' : 'Aktif'}
-                        </span>
+                        <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[7px] md:text-[10px] font-bold whitespace-nowrap ${p.status === 'redeemed' ? 'bg-emerald-100 text-emerald-700' : isOverdue(p) ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                          {p.status === 'redeemed' ? 'Sudah Ditebus' : isOverdue(p) ? '⚠ Lewat 30 Hari' : 'Aktif'}
+                    </span>
                       </div>
 
                       <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-[10px] leading-tight">
                         <div>
                           <p className="text-slate-400 font-semibold uppercase">Tanggal</p>
-                          <p className="text-slate-700 font-bold">{p.date}</p>
+                          <p className="text-slate-700 font-bold">{format(new Date(p.date), 'dd MMM yyyy, HH:mm')}</p>
                         </div>
                         <div>
                           <p className="text-slate-400 font-semibold uppercase">Pinjaman</p>
@@ -515,7 +673,7 @@ export default function PawnDashboard() {
                           <p className="text-slate-400 font-semibold uppercase">Penebusan</p>
                           <button
                             onClick={() => togglePawnStatus(p.id)}
-                            className={`mt-0.5 rounded-md px-2 py-1 text-[9px] font-bold whitespace-nowrap transition-colors ${p.status === 'redeemed' ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}
+                            className={`mt-0.5 rounded-md px-2 py-1 text-[9px] font-bold whitespace-nowrap transition-colors ${p.status === 'redeemed' ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : isOverdue(p) ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}
                           >
                             {p.status === 'redeemed' ? 'Set Aktif' : 'Tandai Tebus'}
                           </button>
@@ -552,23 +710,23 @@ export default function PawnDashboard() {
                     </tr></thead>
                     <tbody>
                       {fPawns.map((p, index) => (
-                        <tr key={p.id} className={`border-t border-slate-50 hover:bg-slate-50/60 ${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
-                          <td className="px-1.5 py-2 md:p-3 whitespace-nowrap text-[8px] md:text-xs text-slate-500">{p.date}</td>
+                        <tr key={p.id} id={`pawn-${p.id}`} className={`border-t border-slate-50 hover:bg-slate-50/60 ${isOverdue(p) ? 'bg-red-50/50 border-l-4 border-l-red-400' : index % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
+                          <td className="px-1.5 py-2 md:p-3 whitespace-nowrap text-[8px] md:text-xs text-slate-500">{format(new Date(p.date), 'dd MMM, HH:mm')}</td>
                           <td className="px-1.5 py-2 md:p-3 font-bold text-slate-800 text-[9px] md:text-xs whitespace-nowrap">{p.name}</td>
                           <td className="px-1.5 py-2 md:p-3 text-[8px] md:text-xs text-slate-600 whitespace-nowrap">{p.phoneBrand}</td>
                           <td className="px-1.5 py-2 md:p-3 text-[8px] md:text-xs font-semibold whitespace-nowrap">Rp {parseFloat(p.loanAmount).toLocaleString()}</td>
                           <td className="px-1.5 py-2 md:p-3 text-[8px] md:text-xs font-black text-blue-600 whitespace-nowrap">Rp {total(p).toLocaleString()}</td>
                           <td className="px-1.5 py-2 md:p-3 whitespace-nowrap">
-                            <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[7px] md:text-[10px] font-bold whitespace-nowrap ${p.status === 'redeemed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                              {p.status === 'redeemed' ? 'Sudah Ditebus' : 'Aktif'}
-                            </span>
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[8px] font-bold whitespace-nowrap ${p.status === 'redeemed' ? 'bg-emerald-100 text-emerald-700' : isOverdue(p) ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                              {p.status === 'redeemed' ? 'Ditebus' : isOverdue(p) ? '⚠ Lewat 30 Hari' : 'Aktif'}
+                        </span>
                           </td>
                           <td className="px-1.5 py-2 md:p-3 whitespace-nowrap">
                             <button
                               onClick={() => togglePawnStatus(p.id)}
-                              className={`rounded-md px-1.5 py-0.5 text-[7px] md:text-[10px] font-bold whitespace-nowrap transition-colors ${p.status === 'redeemed' ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}
+                              className={`rounded-md px-1.5 py-0.5 text-[7px] md:text-[10px] font-bold whitespace-nowrap transition-colors ${p.status === 'redeemed' ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : isOverdue(p) ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}
                             >
-                              {p.status === 'redeemed' ? 'Set Aktif' : 'Tandai Tebus'}
+                              {p.status === 'redeemed' ? 'Set Aktif' : isOverdue(p) ? 'Tandai Tebus' : 'Tandai Tebus'}
                             </button>
                           </td>
                           <td className="px-1.5 py-2 md:p-3 whitespace-nowrap">
@@ -847,7 +1005,7 @@ export default function PawnDashboard() {
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Tanggal</label>
-                <input type="date" className="w-full bg-slate-50 p-3 rounded-xl text-sm" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
+                <input type="datetime-local" className="w-full bg-slate-50 p-3 rounded-xl text-sm" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Gadget</label>
@@ -861,6 +1019,11 @@ export default function PawnDashboard() {
                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Pot. Bunga (Rp)</label>
                 <input type="number" className="w-full bg-slate-50 p-3 rounded-xl text-sm" value={formData.interestReduction} onChange={e => setFormData({ ...formData, interestReduction: e.target.value })} />
               </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Denda (Rp)</label>
+                <input type="number" className="w-full bg-slate-50 p-3 rounded-xl text-sm" value={formData.penalty} onChange={e => setFormData({ ...formData, penalty: e.target.value })} />
+              </div>
+
               <div className="col-span-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Member</label>
                 <select className="w-full bg-slate-50 p-3 rounded-xl text-sm" value={formData.memberId} onChange={e => setFormData({ ...formData, memberId: e.target.value })}>
@@ -916,19 +1079,46 @@ export default function PawnDashboard() {
         </div>
       )}
 
-      {isQRModalOpen && selectedPawn && (
-        <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl w-full max-w-xs p-8 shadow-2xl text-center">
-            <h2 className="text-xl font-black mb-1">E-Kwitansi</h2>
-            <p className="text-slate-400 text-[10px] uppercase tracking-widest mb-6">Scan QR Code</p>
-            <div className="bg-white p-4 inline-block border-4 border-slate-50 rounded-2xl mb-6">
-              <QRCodeSVG value={`${window.location.origin}/view/${selectedPawn.accessCode}`} size={180} />
-            </div>
-            <div className="bg-slate-50 p-3 rounded-xl font-mono text-lg font-black tracking-widest mb-6">{selectedPawn.accessCode}</div>
-            <button onClick={() => setIsQRModalOpen(false)} className="w-full bg-slate-900 text-white font-bold py-3 rounded-xl active:scale-95 transition-transform">Tutup</button>
-          </div>
+     {isQRModalOpen && selectedPawn && (
+  <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-4 backdrop-blur-sm">
+    <div className="bg-white rounded-3xl w-full max-w-xs p-8 shadow-2xl text-center">
+      <h2 className="text-xl font-black mb-1">E-Kwitansi</h2>
+      <p className="text-slate-400 text-[10px] uppercase tracking-widest mb-6">Scan QR Code</p>
+      <div className="bg-white p-4 inline-block border-4 border-slate-50 rounded-2xl mb-6">
+        <QRCodeSVG value={`${window.location.origin}/view/${selectedPawn.accessCode}`} size={180} />
+      </div>
+      <div className="bg-slate-50 p-3 rounded-xl font-mono text-lg font-black tracking-widest mb-6">{selectedPawn.accessCode}</div>
+      <div className="flex gap-2">
+        <button onClick={() => window.print()} className="flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl active:scale-95 transition-transform">Cetak</button>
+        <button onClick={() => setIsQRModalOpen(false)} className="flex-1 bg-slate-900 text-white font-bold py-3 rounded-xl active:scale-95 transition-transform">Tutup</button>
+      </div>
+    </div>
+
+    {/* Area khusus buat dicetak, tersembunyi di layar normal */}
+    <div id="print-area" className="hidden">
+      <div style={{ padding: '8px', fontFamily: 'monospace', fontSize: '11px', textAlign: 'center' }}>
+        <p style={{ fontWeight: 'bold', fontSize: '14px', margin: 0 }}>{settingsData.storeName}</p>
+        {settingsData.storeAddress && <p style={{ margin: '2px 0' }}>{settingsData.storeAddress}</p>}
+        {settingsData.storePhone && <p style={{ margin: '2px 0' }}>{settingsData.storePhone}</p>}
+        <p style={{ margin: '4px 0', borderTop: '1px dashed #000', borderBottom: '1px dashed #000', padding: '4px 0' }}>
+          {format(new Date(selectedPawn.date), 'dd/MM/yyyy HH:mm')}
+        </p>
+        <div style={{ textAlign: 'left', margin: '6px 0' }}>
+          <p style={{ margin: '2px 0' }}>Nama: {selectedPawn.name}</p>
+          <p style={{ margin: '2px 0' }}>HP: {selectedPawn.phoneBrand}</p>
+          <p style={{ margin: '2px 0' }}>Pinjaman: Rp {parseFloat(selectedPawn.loanAmount).toLocaleString()}</p>
+          <p style={{ margin: '2px 0' }}>Bunga (10%): Rp {(parseFloat(selectedPawn.loanAmount) * 0.1).toLocaleString()}</p>
+          <p style={{ margin: '2px 0', fontWeight: 'bold' }}>Total: Rp {total(selectedPawn).toLocaleString()}</p>
         </div>
-      )}
+        <div style={{ margin: '8px 0' }}>
+          <QRCodeSVG value={`${typeof window !== 'undefined' ? window.location.origin : ''}/view/${selectedPawn.accessCode}`} size={120} />
+        </div>
+        <p style={{ fontWeight: 'bold', letterSpacing: '2px', margin: '4px 0' }}>{selectedPawn.accessCode}</p>
+        <p style={{ margin: '4px 0', borderTop: '1px dashed #000', paddingTop: '4px' }}>Terima kasih</p>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 }

@@ -41,7 +41,6 @@ export default function LoginPage() {
       <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl border border-slate-100">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-slate-900">sFixied</h1>
-          <p className="text-slate-500 mt-2">Masuk ke sistem penggadaian (Offline Mode)</p>
         </div>
         
         <form onSubmit={handleLogin} className="space-y-6">
