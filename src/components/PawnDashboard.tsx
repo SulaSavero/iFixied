@@ -331,6 +331,9 @@ const overduePawns = pawns.filter(isOverdue);
 
   const fMembers = members.filter(m => m.name.toLowerCase().includes(search.toLowerCase()) || m.phone.includes(search));
 
+  // Transaksi terbaru: urutkan berdasarkan tanggal transaksi paling baru, bukan urutan mentah dari API
+  const recentPawns = [...pawns].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
+
   const navTo = (tab: typeof activeTab) => { setActiveTab(tab); setSidebarOpen(false); setSearch(''); };
   const goToOverdue = () => {
   const target = overduePawns[0];
@@ -592,7 +595,7 @@ const overduePawns = pawns.filter(isOverdue);
                         <p className="text-xs text-slate-400 font-semibold">Belum ada transaksi</p>
                       </div>
                     )}
-                    {pawns.slice(0, 5).map(p => (
+                    {recentPawns.map(p => (
                       <div key={p.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors">
                         <div className="bg-slate-100 w-9 h-9 rounded-lg flex items-center justify-center text-slate-400"><Smartphone size={16} /></div>
                         <div className="flex-1 min-w-0">
