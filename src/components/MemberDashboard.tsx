@@ -35,55 +35,55 @@ export default function MemberDashboard() {
   // Config: 1 poin = Rp 1000
   const POINT_VALUE = 1000;
 
- useEffect(() => {
-  fetch('/api/session')
-    .then(res => res.json())
-    .then(session => {
-      const memberId = session.userId;
-      return Promise.all([
-        fetch('/api/members').then(res => res.json()),
-        fetch('/api/pawns').then(res => res.json()),
-      ]).then(([allMembers, allPawns]: [Member[], Pawn[]]) => {
-        const currentMember = allMembers.find(m => m.id === memberId);
-        if (currentMember) {
-          setMember(currentMember);
-          setProfileData({ name: currentMember.name, password: currentMember.password || currentMember.phone });
-        }
-        setMyPawns(allPawns.filter(p => p.memberId === memberId).map((p) => ({ ...p, status: p.status || 'active' })));
-      });
-    })
-    .catch(err => console.error('Gagal ambil data:', err))
-    .finally(() => setLoading(false));
-}, []);
+  useEffect(() => {
+    fetch('/api/session')
+      .then(res => res.json())
+      .then(session => {
+        const memberId = session.userId;
+        return Promise.all([
+          fetch('/api/members').then(res => res.json()),
+          fetch('/api/pawns').then(res => res.json()),
+        ]).then(([allMembers, allPawns]: [Member[], Pawn[]]) => {
+          const currentMember = allMembers.find(m => m.id === memberId);
+          if (currentMember) {
+            setMember(currentMember);
+            setProfileData({ name: currentMember.name, password: currentMember.password || currentMember.phone });
+          }
+          setMyPawns(allPawns.filter(p => p.memberId === memberId).map((p) => ({ ...p, status: p.status || 'active' })));
+        });
+      })
+      .catch(err => console.error('Gagal ambil data:', err))
+      .finally(() => setLoading(false));
+  }, []);
 
   const calculateTotal = (p: Pawn) => parseFloat(p.loanAmount) * 1.1 - parseFloat(p.interestReduction) + parseFloat(p.penalty);
 
   const handleLogout = async () => {
-  await fetch('/api/logout', { method: 'POST' });
-  localStorage.removeItem('isLoggedIn');
-  localStorage.removeItem('userRole');
-  localStorage.removeItem('memberId');
-  window.location.href = '/login';
-};
+    await fetch('/api/logout', { method: 'POST' });
+    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('memberId');
+    window.location.href = '/login';
+  };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!member) return;
-  try {
-    const res = await fetch('/api/members', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: member.id, password: profileData.password }),
-    });
-    const updated = await res.json();
-    setMember(updated);
-    setIsProfileModalOpen(false);
-    alert('Password berhasil diperbarui!');
-  } catch (err) {
-    console.error('Gagal update profil:', err);
-    alert('Gagal menyimpan perubahan. Coba lagi.');
-  }
-};
+    e.preventDefault();
+    if (!member) return;
+    try {
+      const res = await fetch('/api/members', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: member.id, password: profileData.password }),
+      });
+      const updated = await res.json();
+      setMember(updated);
+      setIsProfileModalOpen(false);
+      alert('Password berhasil diperbarui!');
+    } catch (err) {
+      console.error('Gagal update profil:', err);
+      alert('Gagal menyimpan perubahan. Coba lagi.');
+    }
+  };
 
   const openRedeemModal = (type: 'balance' | 'discount' | 'item') => {
     if (type === 'item') {
@@ -120,20 +120,20 @@ export default function MemberDashboard() {
     };
 
     // Update member points
-  try {
-   const newPoints = member.points - points;
-   const res = await fetch('/api/members', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id: member.id, points: newPoints }),
-   });
-   const updatedMember = await res.json();
-   setMember(updatedMember);
- } catch (err) {
-  console.error('Gagal update poin:', err);
-  alert('Gagal menukar poin. Coba lagi.');
-  return;
- }
+    try {
+      const newPoints = member.points - points;
+      const res = await fetch('/api/members', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: member.id, points: newPoints }),
+      });
+      const updatedMember = await res.json();
+      setMember(updatedMember);
+    } catch (err) {
+      console.error('Gagal update poin:', err);
+      alert('Gagal menukar poin. Coba lagi.');
+      return;
+    }
 
     // Save redemption history
     const savedRedemptions = localStorage.getItem('redemptions_data');
@@ -146,26 +146,36 @@ export default function MemberDashboard() {
     alert(`Berhasil menukar ${points} poin menjadi ${redeemType === 'balance' ? 'Saldo' : 'Potongan Pinjaman'} Rp ${value.toLocaleString()}`);
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-pulse text-slate-400">Loading...</div></div>;
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-[#f2f2f7]">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-14 h-14 rounded-full shimmer" />
+        <div className="h-3 w-32 rounded-full shimmer" />
+      </div>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24">
+    <div className="min-h-screen bg-[#f2f2f7] pb-28 relative overflow-hidden">
+      <div className="ios-blob w-[360px] h-[360px] bg-blue-400 -top-32 -right-24" />
+      <div className="ios-blob delay-3 w-[280px] h-[280px] bg-purple-300 top-1/2 -left-32" />
+
       {/* Header */}
-      <div className="bg-gradient-to-br from-blue-600 to-blue-700 text-white px-5 pt-6 pb-10 rounded-b-[2.5rem]">
+      <div className="relative bg-gradient-to-br from-blue-600 to-indigo-700 text-white px-5 pt-6 pb-10 rounded-b-[2.5rem] shadow-lg shadow-blue-200/50">
         <div className="flex justify-between items-start mb-6">
-          <div>
+          <div className="animate-fade-up">
             <p className="text-blue-100 text-xs font-medium">Selamat datang,</p>
             <h1 className="text-xl font-black">{member?.name || 'Member'}</h1>
             <p className="text-blue-200 text-[10px] font-mono mt-0.5">{member?.id}</p>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => setIsProfileModalOpen(true)} className="bg-white/20 p-2 rounded-xl"><Settings size={18} /></button>
-            <button onClick={handleLogout} className="bg-white/20 p-2 rounded-xl"><LogOut size={18} /></button>
+            <button onClick={() => setIsProfileModalOpen(true)} className="bg-white/20 backdrop-blur-md p-2 rounded-xl spring transition-all active:scale-90"><Settings size={18} /></button>
+            <button onClick={handleLogout} className="bg-white/20 backdrop-blur-md p-2 rounded-xl spring transition-all active:scale-90"><LogOut size={18} /></button>
           </div>
         </div>
 
         {/* Points Card */}
-        <div className="bg-white rounded-3xl p-5 shadow-xl -mb-14 relative z-10">
+        <div className="animate-pop glass-card p-5 -mb-16 relative z-10">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="bg-amber-100 p-3 rounded-2xl"><Star className="text-amber-500" size={28} fill="currentColor" /></div>
@@ -174,18 +184,18 @@ export default function MemberDashboard() {
                 <h2 className="text-3xl font-black text-slate-900">{member?.points || 0}</h2>
               </div>
             </div>
-            <button onClick={() => setActiveTab('redeem')} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1">
+            <button onClick={() => setActiveTab('redeem')} className="btn-primary text-xs py-2 px-4">
               <Gift size={14} /> Tukar
             </button>
           </div>
-          
+
           {/* Balance & Discount Credit */}
-          <div className="grid grid-cols-2 gap-3 mt-5 pt-5 border-t border-slate-100">
-            <div className="bg-emerald-50 p-3 rounded-xl">
+          <div className="grid grid-cols-2 gap-3 mt-5 pt-5 border-t border-slate-200/60">
+            <div className="bg-emerald-50/80 backdrop-blur-sm p-3 rounded-2xl border border-emerald-100">
               <p className="text-[9px] font-bold text-emerald-600 uppercase tracking-wider">Saldo</p>
               <p className="text-sm font-black text-emerald-700">Rp {(member?.balance || 0).toLocaleString()}</p>
             </div>
-            <div className="bg-purple-50 p-3 rounded-xl">
+            <div className="bg-purple-50/80 backdrop-blur-sm p-3 rounded-2xl border border-purple-100">
               <p className="text-[9px] font-bold text-purple-600 uppercase tracking-wider">Kredit Potongan</p>
               <p className="text-sm font-black text-purple-700">Rp {(member?.discountCredit || 0).toLocaleString()}</p>
             </div>
@@ -194,25 +204,25 @@ export default function MemberDashboard() {
       </div>
 
       {/* Content */}
-      <div className="px-5 pt-20">
+      <div className="relative px-5 pt-24 z-10">
 
         {/* Tab: Home */}
         {activeTab === 'home' && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-black text-slate-800">Gadaian Aktif</h3>
-              <span className="bg-slate-200 text-slate-600 px-2.5 py-1 rounded-full text-[10px] font-bold">{myPawns.length} Item</span>
+              <span className="glass-pill text-slate-600 px-2.5 py-1 text-[10px] font-bold">{myPawns.length} Item</span>
             </div>
 
             {myPawns.length === 0 ? (
-              <div className="bg-white rounded-2xl p-10 text-center border border-dashed border-slate-200">
-                <Smartphone className="mx-auto text-slate-200 mb-3" size={48} />
+              <div className="glass-card p-10 text-center border-dashed">
+                <Smartphone className="mx-auto text-slate-300 mb-3" size={48} />
                 <p className="text-slate-400 text-xs font-semibold">Belum ada gadaian aktif</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {myPawns.map(p => (
-                  <div key={p.id} className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+                  <div key={p.id} className="glass-card p-4">
                     <div className="flex justify-between items-start mb-3 gap-3">
                       <div>
                         <h4 className="text-sm font-black text-slate-800">{p.phoneBrand}</h4>
@@ -227,16 +237,16 @@ export default function MemberDashboard() {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <div className="flex-1 bg-slate-50 p-2 rounded-lg">
+                      <div className="flex-1 bg-white/60 backdrop-blur-sm p-2 rounded-xl border border-white/50">
                         <p className="text-[9px] text-slate-400 font-bold uppercase">Pinjaman</p>
                         <p className="text-xs font-bold text-slate-700">Rp {parseFloat(p.loanAmount).toLocaleString()}</p>
                       </div>
-                      <div className="flex-1 bg-slate-50 p-2 rounded-lg">
+                      <div className="flex-1 bg-white/60 backdrop-blur-sm p-2 rounded-xl border border-white/50">
                         <p className="text-[9px] text-slate-400 font-bold uppercase">Kode</p>
                         <p className="text-xs font-mono font-bold text-slate-700">{p.accessCode}</p>
                       </div>
                     </div>
-                    <a href={`/view/${p.accessCode}`} className="mt-3 w-full flex items-center justify-center gap-2 bg-blue-50 text-blue-600 py-2.5 rounded-xl text-xs font-bold">
+                    <a href={`/view/${p.accessCode}`} className="mt-3 w-full flex items-center justify-center gap-2 bg-blue-50/80 backdrop-blur-sm text-blue-600 py-2.5 rounded-full text-xs font-bold spring transition-all active:scale-95">
                       <ShieldCheck size={14} /> Lihat Struk
                     </a>
                   </div>
@@ -256,7 +266,7 @@ export default function MemberDashboard() {
 
             <div className="space-y-3">
               {/* Option 1: Balance */}
-              <button onClick={() => openRedeemModal('balance')} className="w-full bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center gap-4 text-left active:scale-[0.98] transition-transform">
+              <button onClick={() => openRedeemModal('balance')} className="w-full glass-card p-5 flex items-center gap-4 text-left spring transition-all active:scale-[0.98]">
                 <div className="bg-emerald-100 p-3 rounded-2xl"><Wallet className="text-emerald-600" size={24} /></div>
                 <div className="flex-1">
                   <h4 className="text-sm font-black text-slate-800">Tukar ke Saldo</h4>
@@ -267,7 +277,7 @@ export default function MemberDashboard() {
               </button>
 
               {/* Option 2: Loan Discount */}
-              <button onClick={() => openRedeemModal('discount')} className="w-full bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center gap-4 text-left active:scale-[0.98] transition-transform">
+              <button onClick={() => openRedeemModal('discount')} className="w-full glass-card p-5 flex items-center gap-4 text-left spring transition-all active:scale-[0.98]">
                 <div className="bg-purple-100 p-3 rounded-2xl"><Percent className="text-purple-600" size={24} /></div>
                 <div className="flex-1">
                   <h4 className="text-sm font-black text-slate-800">Potongan Pinjaman</h4>
@@ -278,7 +288,7 @@ export default function MemberDashboard() {
               </button>
 
               {/* Option 3: Items (Coming Soon) */}
-              <button onClick={() => openRedeemModal('item')} className="w-full bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex items-center gap-4 text-left opacity-60">
+              <button onClick={() => openRedeemModal('item')} className="w-full glass-card p-5 flex items-center gap-4 text-left opacity-60">
                 <div className="bg-amber-100 p-3 rounded-2xl"><ShoppingBag className="text-amber-600" size={24} /></div>
                 <div className="flex-1">
                   <h4 className="text-sm font-black text-slate-800">Tukar Barang</h4>
@@ -304,14 +314,14 @@ export default function MemberDashboard() {
             </div>
 
             {redemptions.length === 0 ? (
-              <div className="bg-white rounded-2xl p-10 text-center border border-dashed border-slate-200">
-                <Gift className="mx-auto text-slate-200 mb-3" size={48} />
+              <div className="glass-card p-10 text-center border-dashed">
+                <Gift className="mx-auto text-slate-300 mb-3" size={48} />
                 <p className="text-slate-400 text-xs font-semibold">Belum ada riwayat penukaran</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {redemptions.map(r => (
-                  <div key={r.id} className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex items-center gap-4">
+                  <div key={r.id} className="glass-card p-4 flex items-center gap-4">
                     <div className={`p-2.5 rounded-xl ${r.type === 'balance' ? 'bg-emerald-100' : r.type === 'discount' ? 'bg-purple-100' : 'bg-amber-100'}`}>
                       {r.type === 'balance' ? <Wallet className="text-emerald-600" size={20} /> : r.type === 'discount' ? <Percent className="text-purple-600" size={20} /> : <ShoppingBag className="text-amber-600" size={20} />}
                     </div>
@@ -335,16 +345,16 @@ export default function MemberDashboard() {
       </div>
 
       {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-6 py-3 flex justify-around z-50">
-        <button onClick={() => setActiveTab('home')} className={`flex flex-col items-center gap-1 ${activeTab === 'home' ? 'text-blue-600' : 'text-slate-400'}`}>
+      <div className="fixed bottom-4 left-4 right-4 glass-pill shadow-[0_8px_32px_-8px_rgba(0,0,0,0.2)] px-6 py-3 flex justify-around z-50">
+        <button onClick={() => setActiveTab('home')} className={`flex flex-col items-center gap-1 spring transition-all active:scale-90 ${activeTab === 'home' ? 'text-blue-600' : 'text-slate-400'}`}>
           <Smartphone size={20} />
           <span className="text-[10px] font-bold">Gadaian</span>
         </button>
-        <button onClick={() => setActiveTab('redeem')} className={`flex flex-col items-center gap-1 ${activeTab === 'redeem' ? 'text-blue-600' : 'text-slate-400'}`}>
+        <button onClick={() => setActiveTab('redeem')} className={`flex flex-col items-center gap-1 spring transition-all active:scale-90 ${activeTab === 'redeem' ? 'text-blue-600' : 'text-slate-400'}`}>
           <Gift size={20} />
           <span className="text-[10px] font-bold">Tukar Poin</span>
         </button>
-        <button onClick={() => setActiveTab('history')} className={`flex flex-col items-center gap-1 ${activeTab === 'history' ? 'text-blue-600' : 'text-slate-400'}`}>
+        <button onClick={() => setActiveTab('history')} className={`flex flex-col items-center gap-1 spring transition-all active:scale-90 ${activeTab === 'history' ? 'text-blue-600' : 'text-slate-400'}`}>
           <History size={20} />
           <span className="text-[10px] font-bold">Riwayat</span>
         </button>
@@ -352,8 +362,8 @@ export default function MemberDashboard() {
 
       {/* Redeem Modal */}
       {isRedeemModalOpen && redeemType && (
-        <div className="fixed inset-0 bg-black/50 z-[100] flex items-end justify-center p-0 backdrop-blur-sm">
-          <div className="bg-white w-full rounded-t-[2rem] p-6 shadow-2xl">
+        <div className="fixed inset-0 bg-black/40 z-[100] flex items-end justify-center p-0 backdrop-blur-sm">
+          <div className="animate-fade-up bg-white/90 backdrop-blur-2xl w-full rounded-t-[2rem] p-6 shadow-2xl border-t border-white/60">
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-3">
                 <div className={`p-2 rounded-xl ${redeemType === 'balance' ? 'bg-emerald-100' : 'bg-purple-100'}`}>
@@ -363,10 +373,10 @@ export default function MemberDashboard() {
                   {redeemType === 'balance' ? 'Tukar ke Saldo' : 'Potongan Pinjaman'}
                 </h3>
               </div>
-              <button onClick={() => setIsRedeemModalOpen(false)} className="bg-slate-100 p-2 rounded-full"><X size={18} /></button>
+              <button onClick={() => setIsRedeemModalOpen(false)} className="bg-slate-100 p-2 rounded-full spring transition-all active:scale-90"><X size={18} /></button>
             </div>
 
-            <div className="bg-slate-50 p-4 rounded-2xl mb-6">
+            <div className="bg-white/70 backdrop-blur-md p-4 rounded-2xl mb-6 border border-white/50">
               <div className="flex justify-between items-center">
                 <span className="text-xs text-slate-500 font-semibold">Poin Tersedia</span>
                 <span className="text-lg font-black text-slate-800 flex items-center gap-1"><Star size={16} className="text-amber-500" fill="currentColor" /> {member?.points || 0}</span>
@@ -376,20 +386,20 @@ export default function MemberDashboard() {
             <form onSubmit={handleRedeem} className="space-y-4">
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-2">Jumlah Poin yang Ditukar</label>
-                <input 
-                  type="number" 
-                  required 
-                  min="1" 
+                <input
+                  type="number"
+                  required
+                  min="1"
                   max={member?.points || 0}
-                  className="w-full bg-slate-50 p-4 rounded-xl text-lg font-bold text-center" 
+                  className="ios-input text-lg font-bold text-center"
                   placeholder="0"
                   value={redeemAmount}
                   onChange={e => setRedeemAmount(e.target.value)}
                 />
               </div>
-              
+
               {redeemAmount && parseInt(redeemAmount) > 0 && (
-                <div className={`p-4 rounded-2xl ${redeemType === 'balance' ? 'bg-emerald-50' : 'bg-purple-50'}`}>
+                <div className={`p-4 rounded-2xl backdrop-blur-md border ${redeemType === 'balance' ? 'bg-emerald-50/80 border-emerald-100' : 'bg-purple-50/80 border-purple-100'}`}>
                   <p className="text-xs text-slate-500 font-semibold mb-1">Anda akan mendapatkan</p>
                   <p className={`text-2xl font-black ${redeemType === 'balance' ? 'text-emerald-600' : 'text-purple-600'}`}>
                     Rp {(parseInt(redeemAmount) * POINT_VALUE).toLocaleString()}
@@ -401,10 +411,10 @@ export default function MemberDashboard() {
               )}
 
               <div className="flex gap-3 pt-2">
-                <button type="submit" className={`flex-1 text-white font-bold py-4 rounded-2xl active:scale-95 transition-transform ${redeemType === 'balance' ? 'bg-emerald-600' : 'bg-purple-600'}`}>
+                <button type="submit" className={`flex-1 text-white font-bold py-4 rounded-full spring transition-all active:scale-95 shadow-lg ${redeemType === 'balance' ? 'bg-emerald-600 shadow-emerald-200' : 'bg-purple-600 shadow-purple-200'}`}>
                   Tukar Sekarang
                 </button>
-                <button type="button" onClick={() => setIsRedeemModalOpen(false)} className="px-6 bg-slate-100 text-slate-600 font-semibold py-4 rounded-2xl">
+                <button type="button" onClick={() => setIsRedeemModalOpen(false)} className="px-6 bg-slate-100 text-slate-600 font-semibold py-4 rounded-full">
                   Batal
                 </button>
               </div>
@@ -415,18 +425,18 @@ export default function MemberDashboard() {
 
       {/* Profile Modal */}
       {isProfileModalOpen && (
-        <div className="fixed inset-0 bg-black/50 z-[100] flex items-end justify-center p-0 backdrop-blur-sm">
-          <div className="bg-white w-full rounded-t-[2rem] p-6 shadow-2xl">
+        <div className="fixed inset-0 bg-black/40 z-[100] flex items-end justify-center p-0 backdrop-blur-sm">
+          <div className="animate-fade-up bg-white/90 backdrop-blur-2xl w-full rounded-t-[2rem] p-6 shadow-2xl border-t border-white/60">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-lg font-black text-slate-800 flex items-center gap-2"><User className="text-blue-600" size={20} /> Profil Saya</h3>
-              <button onClick={() => setIsProfileModalOpen(false)} className="bg-slate-100 p-2 rounded-full"><X size={18} /></button>
+              <button onClick={() => setIsProfileModalOpen(false)} className="bg-slate-100 p-2 rounded-full spring transition-all active:scale-90"><X size={18} /></button>
             </div>
             <form onSubmit={handleSaveProfile} className="space-y-4">
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Nama Lengkap</label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-                  <input readOnly className="w-full bg-slate-100 pl-10 pr-4 py-3 rounded-xl text-slate-400 font-semibold cursor-not-allowed" value={profileData.name} />
+                  <input readOnly className="w-full bg-slate-100/80 pl-10 pr-4 py-3 rounded-2xl text-slate-400 font-semibold cursor-not-allowed" value={profileData.name} />
                 </div>
                 <p className="text-[9px] text-amber-500 mt-1 font-medium">* Hanya admin yang dapat mengubah nama</p>
               </div>
@@ -434,12 +444,12 @@ export default function MemberDashboard() {
                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Password Baru</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-                  <input type="text" required className="w-full bg-slate-50 pl-10 pr-4 py-3 rounded-xl font-semibold" value={profileData.password} onChange={e => setProfileData({ ...profileData, password: e.target.value })} />
+                  <input type="text" required className="ios-input pl-10 font-semibold" value={profileData.password} onChange={e => setProfileData({ ...profileData, password: e.target.value })} />
                 </div>
               </div>
               <div className="flex gap-3 pt-2">
-                <button type="submit" className="flex-1 bg-blue-600 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform"><Save size={16} /> Simpan</button>
-                <button type="button" onClick={() => setIsProfileModalOpen(false)} className="px-6 bg-slate-100 text-slate-600 font-semibold py-4 rounded-2xl">Batal</button>
+                <button type="submit" className="btn-primary flex-1 justify-center flex py-4"><Save size={16} /> Simpan</button>
+                <button type="button" onClick={() => setIsProfileModalOpen(false)} className="px-6 bg-slate-100 text-slate-600 font-semibold py-4 rounded-full">Batal</button>
               </div>
             </form>
           </div>

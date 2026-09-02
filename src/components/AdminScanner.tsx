@@ -17,99 +17,99 @@ export default function AdminScanner() {
   const [manualCode, setManualCode] = useState('');
 
   const lookupCode = useCallback(async (code: string) => {
-  try {
-    const res = await fetch('/api/pawns');
-    const allPawns: Pawn[] = await res.json();
-    const found = allPawns.find(p => p.accessCode === code.toUpperCase());
-    if (found) {
-      setFoundPawn({ ...found, status: found.status || 'active' });
-      setNotFound(false);
-    } else {
+    try {
+      const res = await fetch('/api/pawns');
+      const allPawns: Pawn[] = await res.json();
+      const found = allPawns.find(p => p.accessCode === code.toUpperCase());
+      if (found) {
+        setFoundPawn({ ...found, status: found.status || 'active' });
+        setNotFound(false);
+      } else {
+        setNotFound(true);
+        setFoundPawn(null);
+      }
+    } catch (err) {
+      console.error('Gagal ambil data pawns:', err);
       setNotFound(true);
       setFoundPawn(null);
     }
-  } catch (err) {
-    console.error('Gagal ambil data pawns:', err);
-    setNotFound(true);
-    setFoundPawn(null);
-  }
-  setScanning(false);
-}, []);
+    setScanning(false);
+  }, []);
 
   useEffect(() => {
-  if (!scanning) return;
+    if (!scanning) return;
 
-  const qrCode = new Html5Qrcode('admin-reader');
-  let isStarted = false;
-  let isStopping = false;
-  let cancelled = false;
+    const qrCode = new Html5Qrcode('admin-reader');
+    let isStarted = false;
+    let isStopping = false;
+    let cancelled = false;
 
-  const handleSuccess = (decodedText: string) => {
-    let code = decodedText;
-    if (decodedText.includes('/view/')) {
-      code = decodedText.split('/view/').pop() || decodedText;
-    }
-    if (isStarted && !isStopping) {
-      isStopping = true;
-      qrCode
-        .stop()
-        .then(() => lookupCode(code))
-        .catch(() => lookupCode(code));
-    }
-  };
-
-  const config = { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
-
-  const startScanner = async () => {
-    try {
-      await qrCode.start({ facingMode: 'environment' }, config, handleSuccess, () => {});
-      if (cancelled) {
-        await qrCode.stop().catch(() => {});
-        return;
+    const handleSuccess = (decodedText: string) => {
+      let code = decodedText;
+      if (decodedText.includes('/view/')) {
+        code = decodedText.split('/view/').pop() || decodedText;
       }
-      isStarted = true;
-    } catch (err) {
-      if (cancelled) return;
+      if (isStarted && !isStopping) {
+        isStopping = true;
+        qrCode
+          .stop()
+          .then(() => lookupCode(code))
+          .catch(() => lookupCode(code));
+      }
+    };
+
+    const config = { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
+
+    const startScanner = async () => {
       try {
-        await qrCode.start({ facingMode: 'user' }, config, handleSuccess, () => {});
+        await qrCode.start({ facingMode: 'environment' }, config, handleSuccess, () => {});
         if (cancelled) {
           await qrCode.stop().catch(() => {});
           return;
         }
         isStarted = true;
-      } catch (e) {
-        console.error('Gagal membuka kamera:', e);
+      } catch (err) {
+        if (cancelled) return;
+        try {
+          await qrCode.start({ facingMode: 'user' }, config, handleSuccess, () => {});
+          if (cancelled) {
+            await qrCode.stop().catch(() => {});
+            return;
+          }
+          isStarted = true;
+        } catch (e) {
+          console.error('Gagal membuka kamera:', e);
+        }
       }
-    }
-  };
+    };
 
-  startScanner();
+    startScanner();
 
-  return () => {
-    cancelled = true;
-    if (isStarted && !isStopping) {
-      isStopping = true;
-      qrCode.stop().catch(() => {});
-    }
-  };
-}, [scanning, lookupCode]);
+    return () => {
+      cancelled = true;
+      if (isStarted && !isStopping) {
+        isStopping = true;
+        qrCode.stop().catch(() => {});
+      }
+    };
+  }, [scanning, lookupCode]);
 
   const toggleStatus = async () => {
-  if (!foundPawn) return;
-  const newStatus = foundPawn.status === 'redeemed' ? 'active' : 'redeemed';
-  try {
-    const res = await fetch('/api/pawns', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: foundPawn.id, status: newStatus }),
-    });
-    const updated = await res.json();
-    setFoundPawn(updated);
-  } catch (err) {
-    console.error('Gagal update status:', err);
-    alert('Gagal update status. Coba lagi.');
-  }
-};
+    if (!foundPawn) return;
+    const newStatus = foundPawn.status === 'redeemed' ? 'active' : 'redeemed';
+    try {
+      const res = await fetch('/api/pawns', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: foundPawn.id, status: newStatus }),
+      });
+      const updated = await res.json();
+      setFoundPawn(updated);
+    } catch (err) {
+      console.error('Gagal update status:', err);
+      alert('Gagal update status. Coba lagi.');
+    }
+  };
 
   const total = (p: Pawn) => parseFloat(p.loanAmount) * 1.1 - parseFloat(p.interestReduction) + parseFloat(p.penalty);
 
@@ -126,9 +126,9 @@ export default function AdminScanner() {
 
   return (
     <div className="flex flex-col items-center">
-      <div className="w-full max-w-sm bg-white rounded-3xl overflow-hidden shadow-2xl border border-slate-100">
+      <div className="animate-pop glass-card w-full max-w-sm overflow-hidden">
 
-        <div className="bg-slate-900 p-6 text-white text-center">
+        <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-6 text-white text-center">
           <Camera className="mx-auto mb-2" size={32} />
           <h2 className="text-xl font-bold">Admin Scanner</h2>
           <p className="text-slate-300 text-sm">Scan untuk cek & tandai penebusan</p>
@@ -137,8 +137,11 @@ export default function AdminScanner() {
         {/* Scanner aktif */}
         {scanning && (
           <>
-            <div className="p-4 bg-slate-50">
-              <div id="admin-reader" className="overflow-hidden rounded-2xl border-4 border-white shadow-inner"></div>
+            <div className="p-4">
+              <div className="relative overflow-hidden rounded-2xl border-4 border-white shadow-inner">
+                <div id="admin-reader"></div>
+                <div className="scan-beam" />
+              </div>
             </div>
             <div className="px-6 pb-6">
               <div className="relative flex items-center py-4">
@@ -150,12 +153,12 @@ export default function AdminScanner() {
                 <input
                   type="text"
                   placeholder="Contoh: A1B2C3D4"
-                  className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none uppercase font-mono text-sm"
+                  className="ios-input flex-1 uppercase font-mono text-sm"
                   value={manualCode}
                   onChange={(e) => setManualCode(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleManual(); }}
                 />
-                <button onClick={handleManual} className="bg-slate-900 text-white px-4 rounded-xl font-bold text-sm">Cari</button>
+                <button onClick={handleManual} className="btn-primary px-5">Cari</button>
               </div>
             </div>
           </>
@@ -163,11 +166,11 @@ export default function AdminScanner() {
 
         {/* Tidak ditemukan */}
         {notFound && !scanning && (
-          <div className="p-8 text-center">
+          <div className="animate-pop p-8 text-center">
             <X className="mx-auto text-red-400 mb-3" size={48} />
             <p className="text-sm font-bold text-slate-800 mb-1">Data Tidak Ditemukan</p>
             <p className="text-xs text-slate-400 mb-6">Kode QR tidak cocok dengan data gadaian manapun.</p>
-            <button onClick={resetScan} className="w-full bg-slate-900 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-transform">
+            <button onClick={resetScan} className="btn-primary w-full justify-center flex">
               <RotateCcw size={16} /> Scan Ulang
             </button>
           </div>
@@ -175,9 +178,9 @@ export default function AdminScanner() {
 
         {/* Detail gadai ditemukan */}
         {foundPawn && !scanning && (
-          <div className="p-5">
+          <div className="animate-pop p-5">
             {/* Status Badge Besar */}
-            <div className={`text-center p-4 rounded-2xl mb-5 ${foundPawn.status === 'redeemed' ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'}`}>
+            <div className={`text-center p-4 rounded-2xl mb-5 backdrop-blur-md ${foundPawn.status === 'redeemed' ? 'bg-emerald-50/80 border border-emerald-200' : 'bg-amber-50/80 border border-amber-200'}`}>
               {foundPawn.status === 'redeemed' ? (
                 <CheckCircle className="mx-auto text-emerald-500 mb-2" size={36} />
               ) : (
@@ -190,21 +193,21 @@ export default function AdminScanner() {
 
             {/* Info detail */}
             <div className="space-y-3 mb-5">
-              <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl">
+              <div className="flex items-center gap-3 bg-white/60 backdrop-blur-md p-3 rounded-2xl border border-white/50">
                 <User size={16} className="text-slate-400 flex-shrink-0" />
                 <div>
                   <p className="text-[9px] text-slate-400 font-bold uppercase">Pelanggan</p>
                   <p className="text-sm font-bold text-slate-800">{foundPawn.name}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl">
+              <div className="flex items-center gap-3 bg-white/60 backdrop-blur-md p-3 rounded-2xl border border-white/50">
                 <Smartphone size={16} className="text-slate-400 flex-shrink-0" />
                 <div>
                   <p className="text-[9px] text-slate-400 font-bold uppercase">Gadget</p>
                   <p className="text-sm font-bold text-slate-800">{foundPawn.phoneBrand}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl">
+              <div className="flex items-center gap-3 bg-white/60 backdrop-blur-md p-3 rounded-2xl border border-white/50">
                 <Calendar size={16} className="text-slate-400 flex-shrink-0" />
                 <div>
                   <p className="text-[9px] text-slate-400 font-bold uppercase">Tanggal Gadai</p>
@@ -214,7 +217,7 @@ export default function AdminScanner() {
             </div>
 
             {/* Rincian */}
-            <div className="bg-slate-50 p-4 rounded-2xl mb-5 space-y-2">
+            <div className="bg-white/60 backdrop-blur-md p-4 rounded-2xl mb-5 space-y-2 border border-white/50">
               <div className="flex justify-between text-xs">
                 <span className="text-slate-500">Pinjaman</span>
                 <span className="font-bold text-slate-700">Rp {parseFloat(foundPawn.loanAmount).toLocaleString()}</span>
@@ -242,7 +245,7 @@ export default function AdminScanner() {
             </div>
 
             {/* Kode */}
-            <div className="bg-slate-100 text-center p-3 rounded-xl mb-5">
+            <div className="bg-slate-100/80 backdrop-blur-md text-center p-3 rounded-2xl mb-5">
               <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Kode Akses</p>
               <p className="font-mono text-lg font-black text-slate-800 tracking-widest">{foundPawn.accessCode}</p>
             </div>
@@ -251,10 +254,10 @@ export default function AdminScanner() {
             <div className="space-y-3">
               <button
                 onClick={toggleStatus}
-                className={`w-full font-bold py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-transform text-sm ${
+                className={`w-full font-bold py-4 rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all duration-300 text-sm spring ${
                   foundPawn.status === 'redeemed'
-                    ? 'bg-amber-500 text-white'
-                    : 'bg-emerald-600 text-white'
+                    ? 'bg-amber-500 text-white shadow-lg shadow-amber-200'
+                    : 'bg-emerald-600 text-white shadow-lg shadow-emerald-200'
                 }`}
               >
                 {foundPawn.status === 'redeemed' ? (
@@ -263,14 +266,14 @@ export default function AdminScanner() {
                   <><CheckCircle size={18} /> Tandai Sudah Ditebus</>
                 )}
               </button>
-              <button onClick={resetScan} className="w-full bg-slate-100 text-slate-600 font-bold py-3 rounded-2xl flex items-center justify-center gap-2 text-sm">
+              <button onClick={resetScan} className="btn-secondary w-full justify-center flex">
                 <Camera size={16} /> Scan Lagi
               </button>
             </div>
           </div>
         )}
 
-        <div className="p-4 text-center border-t border-slate-50">
+        <div className="p-4 text-center border-t border-white/40">
           <a href="/dashboard" className="text-slate-400 text-xs font-semibold hover:text-slate-600 transition-colors">
             ← Kembali ke Dashboard
           </a>

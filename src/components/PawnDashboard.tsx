@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { format, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import {
   QrCode, Edit, Trash2, Plus, LogOut, Search, Download,
   Smartphone, TrendingUp, Users, Star, LayoutDashboard,
   Menu, X, PieChart, Calendar, DollarSign, Wallet, Save, Package,
   Settings, Lock, Store, Percent, Gift, Database, Upload, Trash, Eye, EyeOff,
-  ScanLine, AlertCircle, ChevronLeft, ChevronRight
+  ScanLine, AlertCircle, ChevronLeft, ChevronRight, MoreVertical
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import * as XLSX from 'xlsx';
@@ -27,6 +27,31 @@ function getLocalDateTimeString() {
   return new Date(now.getTime() - offset).toISOString().slice(0, 16);
 }
 
+type TabId = 'overview' | 'pawns' | 'members' | 'settings';
+
+function SidebarLink({
+  id, label, icon: Icon, delay = 0, activeTab, sidebarCollapsed, onClick,
+}: {
+  id: TabId; label: string; icon: any; delay?: number;
+  activeTab: TabId; sidebarCollapsed: boolean; onClick: (id: TabId) => void;
+}) {
+  const isActive = activeTab === id;
+  return (
+    <button
+      onClick={() => onClick(id)}
+      title={label}
+      style={{ animationDelay: `${delay}ms` }}
+      className={`animate-bubble relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 spring active:scale-90 ${isActive ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'text-slate-600 hover:bg-slate-100'} ${sidebarCollapsed ? 'md:justify-center' : ''}`}
+    >
+      <Icon key={isActive ? `${id}-active` : `${id}-idle`} size={18} className={`flex-shrink-0 ${isActive ? 'animate-pop' : ''}`} />
+      <span className={`truncate ${sidebarCollapsed ? 'md:hidden' : ''}`}>{label}</span>
+      {isActive && (
+        <span key={`${id}-dot`} className="animate-pop ml-auto w-1.5 h-1.5 rounded-full bg-white flex-shrink-0" style={{ animationDelay: '80ms' }} />
+      )}
+    </button>
+  );
+}
+
 export default function PawnDashboard() {
   const [pawns, setPawns] = useState<Pawn[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -42,7 +67,8 @@ export default function PawnDashboard() {
   const [selectedPawn, setSelectedPawn] = useState<Pawn | null>(null);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
-  // Bulan yang sedang dipilih untuk tab Data Gadaian
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'redeemed'>('all');
+
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const goToPrevMonth = () => {
     setSelectedMonth(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() - 1, 1));
@@ -51,12 +77,41 @@ export default function PawnDashboard() {
     setSelectedMonth(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 1));
   };
 
+  const [overviewMonth, setOverviewMonth] = useState(new Date());
+  const goToPrevOverviewMonth = () => {
+    setOverviewMonth(new Date(overviewMonth.getFullYear(), overviewMonth.getMonth() - 1, 1));
+  };
+  const goToNextOverviewMonth = () => {
+    setOverviewMonth(new Date(overviewMonth.getFullYear(), overviewMonth.getMonth() + 1, 1));
+  };
+  const isCurrentMonth = overviewMonth.getFullYear() === new Date().getFullYear() && overviewMonth.getMonth() === new Date().getMonth();
+const [modalPeriod, setModalPeriod] = useState<'all' | 'month'>('all');
+const [modalPeriodMonth, setModalPeriodMonth] = useState(new Date());
+const goToPrevModalMonth = () => {
+  setModalPeriodMonth(new Date(modalPeriodMonth.getFullYear(), modalPeriodMonth.getMonth() - 1, 1));
+};
+const goToNextModalMonth = () => {
+  setModalPeriodMonth(new Date(modalPeriodMonth.getFullYear(), modalPeriodMonth.getMonth() + 1, 1));
+};
+const isModalCurrentMonth = modalPeriodMonth.getFullYear() === new Date().getFullYear() && modalPeriodMonth.getMonth() === new Date().getMonth();
+  const [monthMenuOpen, setMonthMenuOpen] = useState(false);
+  const monthMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (monthMenuRef.current && !monthMenuRef.current.contains(event.target as Node)) {
+        setMonthMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const emptyPawnForm = { date: getLocalDateTimeString(), name: '', phoneBrand: '', loanAmount: '', interestReduction: '0', penalty: '0', memberId: '', status: 'active' };
   const emptyMemberForm = { name: '', phone: '', points: 0, password: '' };
   const [formData, setFormData] = useState(emptyPawnForm);
   const [memberForm, setMemberForm] = useState(emptyMemberForm);
 
-  // Settings state
   const [showPassword, setShowPassword] = useState(false);
   const [settingsData, setSettingsData] = useState({
     adminPassword: 'sula7852',
@@ -88,8 +143,8 @@ export default function PawnDashboard() {
 
   const savePawn = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSaving) return;
     setIsSaving(true);
-    // Cegah field angka kosong tersimpan sebagai '' (nanti jadi NaN saat dihitung)
     const safeFormData = {
       ...formData,
       loanAmount: formData.loanAmount === '' || isNaN(parseFloat(formData.loanAmount)) ? '0' : formData.loanAmount,
@@ -132,10 +187,10 @@ export default function PawnDashboard() {
       }
     } catch (err) {
       console.error('Gagal menyimpan data pawn:', err);
-      setIsSaving(false);
       alert('Gagal menyimpan data. Coba lagi.');
+    } finally {
+      setIsSaving(false);
     }
-    setIsSaving(false);
     setIsModalOpen(false); setSelectedPawn(null); setFormData(emptyPawnForm);
   };
 
@@ -183,27 +238,58 @@ export default function PawnDashboard() {
       alert('Gagal update status. Coba lagi.');
     }
   };
-  
+
   const addDenda = async (p: Pawn) => {
-  const amount = prompt('Tambah denda berapa? (Rp)');
-  if (!amount || isNaN(parseFloat(amount))) return;
-  const newPenalty = parseFloat(p.penalty || '0') + parseFloat(amount);
-  try {
-    const res = await fetch('/api/pawns', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: p.id, penalty: String(newPenalty) }),
-    });
-    const updated = await res.json();
-    setPawns(pawns.map(x => x.id === p.id ? updated : x));
-  } catch (err) {
-    console.error('Gagal tambah denda:', err);
-    alert('Gagal menambah denda. Coba lagi.');
-  }
-};
+    const amount = prompt('Tambah denda berapa? (Rp)');
+    if (!amount || isNaN(parseFloat(amount))) return;
+    const newPenalty = parseFloat(p.penalty || '0') + parseFloat(amount);
+    try {
+      const res = await fetch('/api/pawns', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: p.id, penalty: String(newPenalty) }),
+      });
+      const updated = await res.json();
+      setPawns(pawns.map(x => x.id === p.id ? updated : x));
+    } catch (err) {
+      console.error('Gagal tambah denda:', err);
+      alert('Gagal menambah denda. Coba lagi.');
+    }
+  };
+
+  const deleteMonthData = async () => {
+    const monthLabel = format(selectedMonth, 'MMMM yyyy');
+    const mStartDel = startOfMonth(selectedMonth);
+    const mEndDel = endOfMonth(selectedMonth);
+    const targets = pawns.filter(p => isWithinInterval(new Date(p.date), { start: mStartDel, end: mEndDel }));
+
+    if (targets.length === 0) {
+      alert(`Tidak ada data di bulan ${monthLabel}.`);
+      return;
+    }
+    if (!confirm(`Hapus SEMUA ${targets.length} data gadaian di bulan ${monthLabel}? Tindakan ini tidak bisa dibatalkan!`)) return;
+    if (!confirm(`Konfirmasi sekali lagi: hapus permanen ${targets.length} data di bulan ${monthLabel}?`)) return;
+
+    try {
+      await Promise.all(
+        targets.map(p =>
+          fetch('/api/pawns', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: p.id }),
+          })
+        )
+      );
+      const deletedIds = new Set(targets.map(t => t.id));
+      setPawns(pawns.filter(p => !deletedIds.has(p.id)));
+      alert(`Berhasil menghapus ${targets.length} data di bulan ${monthLabel}.`);
+    } catch (err) {
+      console.error('Gagal hapus data bulan:', err);
+      alert('Gagal menghapus data bulan ini. Coba lagi.');
+    }
+  };
 
   const interestRate = parseFloat(settingsData.interestRate) / 100;
-  // Anti-NaN: field lama yang kosong ('') di database tidak akan merusak tampilan Total lagi
   const total = (p: Pawn) => {
     const loan = parseFloat(p.loanAmount) || 0;
     const reduction = parseFloat(p.interestReduction) || 0;
@@ -211,15 +297,17 @@ export default function PawnDashboard() {
     return loan * (1 + interestRate) - reduction + penalty;
   };
   const isOverdue = (p: Pawn) => {
-  if (p.status === 'redeemed') return false;
-  const daysSince = (new Date().getTime() - new Date(p.date).getTime()) / (1000 * 60 * 60 * 24);
-  return daysSince > 30;
-};
-const overduePawns = pawns.filter(isOverdue);
+    if (p.status === 'redeemed') return false;
+    const daysSince = (new Date().getTime() - new Date(p.date).getTime()) / (1000 * 60 * 60 * 24);
+    return daysSince > 30;
+  };
+  const overduePawns = pawns.filter(isOverdue);
 
-  // Uang yang masih terpendam (modal di gadaian aktif) vs uang yang sudah kembali (modal di gadaian sudah ditebus)
-  const activePawnsAll = pawns.filter(p => p.status !== 'redeemed');
-  const redeemedPawnsAll = pawns.filter(p => p.status === 'redeemed');
+  const modalScopePawns = modalPeriod === 'all'
+  ? pawns
+  : pawns.filter(p => isWithinInterval(new Date(p.date), { start: startOfMonth(modalPeriodMonth), end: endOfMonth(modalPeriodMonth) }));
+  const activePawnsAll = modalScopePawns.filter(p => p.status !== 'redeemed');
+  const redeemedPawnsAll = modalScopePawns.filter(p => p.status === 'redeemed');
   const uangTerpendam = activePawnsAll.reduce((a, p) => a + (parseFloat(p.loanAmount) || 0), 0);
   const uangKembali = redeemedPawnsAll.reduce((a, p) => a + (parseFloat(p.loanAmount) || 0), 0);
   const totalModalBeredar = uangTerpendam + uangKembali;
@@ -308,8 +396,8 @@ const overduePawns = pawns.filter(isOverdue);
   };
 
   const now = new Date();
-  const mStart = startOfMonth(now);
-  const mEnd = endOfMonth(now);
+  const mStart = startOfMonth(overviewMonth);
+  const mEnd = endOfMonth(overviewMonth);
   const mPawns = pawns.filter(p => isWithinInterval(new Date(p.date), { start: mStart, end: mEnd }));
   const mLoan = mPawns.reduce((a, p) => a + (parseFloat(p.loanAmount) || 0), 0);
   const mProfit = mPawns.reduce((a, p) => a + (parseFloat(p.loanAmount) || 0) * 0.1, 0);
@@ -317,52 +405,40 @@ const overduePawns = pawns.filter(isOverdue);
   const mReduction = mPawns.reduce((a, p) => a + (parseFloat(p.interestReduction) || 0), 0);
   const mNet = mProfit + mPenalty - mReduction;
 
-  // Data gadaian difilter berdasarkan bulan yang dipilih di tab "Data Gadaian"
   const pawnsMonthStart = startOfMonth(selectedMonth);
   const pawnsMonthEnd = endOfMonth(selectedMonth);
   const fPawns = pawns
-  .filter(p => isWithinInterval(new Date(p.date), { start: pawnsMonthStart, end: pawnsMonthEnd }))
-  .filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.phoneBrand.toLowerCase().includes(search.toLowerCase()) ||
-    p.date.includes(search) || format(new Date(p.date), 'dd MMM yyyy').toLowerCase().includes(search.toLowerCase())
-  )
-  .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    .filter(p => isWithinInterval(new Date(p.date), { start: pawnsMonthStart, end: pawnsMonthEnd }))
+    .filter(p =>
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      p.phoneBrand.toLowerCase().includes(search.toLowerCase()) ||
+      p.date.includes(search) || format(new Date(p.date), 'dd MMM yyyy').toLowerCase().includes(search.toLowerCase())
+    )
+    .filter(p => statusFilter === 'all' ? true : p.status === statusFilter)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const fMembers = members.filter(m => m.name.toLowerCase().includes(search.toLowerCase()) || m.phone.includes(search));
 
-  // Transaksi terbaru: urutkan berdasarkan tanggal transaksi paling baru, bukan urutan mentah dari API
   const recentPawns = [...pawns].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
 
   const navTo = (tab: typeof activeTab) => { setActiveTab(tab); setSidebarOpen(false); setSearch(''); };
   const goToOverdue = () => {
-  const target = overduePawns[0];
-  if (target) {
-    setSelectedMonth(new Date(target.date));
-  }
-  setActiveTab('pawns');
-  setSidebarOpen(false);
-  setSearch('');
-  setTimeout(() => {
-    const el = document.getElementById(`pawn-${target?.id}`);
-    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }, 150);
+    const target = overduePawns[0];
+    if (target) {
+      setSelectedMonth(new Date(target.date));
+    }
+    setActiveTab('pawns');
+    setSidebarOpen(false);
+    setSearch('');
+    setTimeout(() => {
+      const el = document.getElementById(`pawn-${target?.id}`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 150);
   };
-
-  const SidebarLink = ({ id, label, icon: Icon }: { id: typeof activeTab; label: string; icon: any }) => (
-    <button 
-      onClick={() => navTo(id)} 
-      title={label}
-      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${activeTab === id ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'} ${sidebarCollapsed ? 'md:justify-center' : ''}`}
-    >
-      <Icon size={18} className="flex-shrink-0" />
-      <span className={`truncate ${sidebarCollapsed ? 'md:hidden' : ''}`}>{label}</span>
-    </button>
-  );
 
   if (loading) {
     return (
-      <div className="h-screen flex overflow-hidden bg-slate-50">
+      <div className="h-screen flex overflow-hidden bg-[#f2f2f7]">
         <aside className="hidden md:flex md:w-60 flex-col bg-white border-r border-slate-100 p-4 space-y-2">
           <div className="h-9 w-32 bg-slate-100 rounded-xl animate-pulse mb-4" />
           {[1, 2, 3, 4].map(i => (
@@ -379,7 +455,7 @@ const overduePawns = pawns.filter(isOverdue);
               </div>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                 {[1, 2, 3, 4].map(i => (
-                  <div key={i} className="bg-white p-4 md:p-5 rounded-2xl border border-slate-100 shadow-sm space-y-3">
+                  <div key={i} className="glass-card p-4 md:p-5 space-y-3">
                     <div className="w-9 h-9 rounded-xl bg-slate-100 animate-pulse" />
                     <div className="h-2.5 w-16 bg-slate-100 rounded animate-pulse" />
                     <div className="h-4 w-24 bg-slate-200 rounded animate-pulse" />
@@ -388,7 +464,7 @@ const overduePawns = pawns.filter(isOverdue);
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
                 {[1, 2].map(i => (
-                  <div key={i} className="bg-white p-5 md:p-6 rounded-2xl border border-slate-100 shadow-sm space-y-3">
+                  <div key={i} className="glass-card p-5 md:p-6 space-y-3">
                     <div className="h-5 w-40 bg-slate-200 rounded animate-pulse mb-4" />
                     {[1, 2, 3].map(j => (
                       <div key={j} className="h-12 bg-slate-100 rounded-xl animate-pulse" />
@@ -404,21 +480,23 @@ const overduePawns = pawns.filter(isOverdue);
   }
 
   return (
-    <div className="h-screen flex overflow-hidden bg-slate-50">
-      {/* Overlay mobile */}
-      {sidebarOpen && <div className="fixed inset-0 bg-black/30 z-40 md:hidden" onClick={() => setSidebarOpen(false)} />}
+    <div className="h-screen flex overflow-hidden bg-[#f2f2f7] relative">
+      <div className="ios-blob w-[420px] h-[420px] bg-blue-300 -top-40 -right-40" />
+      <div className="ios-blob delay-3 w-[320px] h-[320px] bg-purple-200 bottom-0 left-1/3" />
+
+      {sidebarOpen && <div className="glass-overlay z-40 md:hidden" onClick={() => setSidebarOpen(false)} />}
 
       {/* Sidebar */}
       <aside className={`
-        fixed inset-y-0 left-0 z-50 bg-white border-r border-slate-100 flex flex-col
-        transition-all duration-300 ease-out
+        fixed inset-y-0 left-0 z-50 bg-white/70 backdrop-blur-2xl border-r border-white/40 flex flex-col
+        transition-all duration-500 spring
+        shadow-[8px_0_40px_-8px_rgba(0,0,0,0.15)] md:shadow-none
         md:static md:translate-x-0
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         ${sidebarCollapsed ? 'md:w-[68px]' : 'md:w-60'}
         w-60
       `}>
-        {/* Logo */}
-        <div className={`flex items-center border-b border-slate-50 h-14 shrink-0 ${sidebarCollapsed ? 'justify-center px-2' : 'px-5 justify-between'}`}>
+        <div className={`flex items-center border-b border-white/40 h-14 shrink-0 ${sidebarCollapsed ? 'justify-center px-2' : 'px-5 justify-between'}`}>
           {sidebarCollapsed ? (
             <div className="bg-blue-600 p-1.5 rounded-lg"><Smartphone className="text-white" size={18} /></div>
           ) : (
@@ -430,18 +508,18 @@ const overduePawns = pawns.filter(isOverdue);
           <button onClick={() => setSidebarOpen(false)} className="md:hidden text-slate-400 p-1"><X size={20} /></button>
         </div>
 
-        {/* Nav */}
         <nav className={`flex-1 space-y-1 overflow-y-auto ${sidebarCollapsed ? 'p-2' : 'p-4'}`}>
           <p className={`text-[10px] font-bold text-slate-400 uppercase tracking-widest px-3 mb-2 ${sidebarCollapsed ? 'md:hidden' : ''}`}>Menu</p>
-          <SidebarLink id="overview" label="Dashboard" icon={LayoutDashboard} />
-          <SidebarLink id="pawns" label="Data Gadaian" icon={Wallet} />
-          <SidebarLink id="members" label="Kelola Member" icon={Users} />
-          <SidebarLink id="settings" label="Pengaturan" icon={Settings} />
-          <div className="pt-4 mt-4 border-t border-slate-100">
+          <SidebarLink id="overview" label="Dashboard" icon={LayoutDashboard} delay={0} activeTab={activeTab} sidebarCollapsed={sidebarCollapsed} onClick={navTo} />
+          <SidebarLink id="pawns" label="Data Gadaian" icon={Wallet} delay={80} activeTab={activeTab} sidebarCollapsed={sidebarCollapsed} onClick={navTo} />
+          <SidebarLink id="members" label="Kelola Member" icon={Users} delay={160} activeTab={activeTab} sidebarCollapsed={sidebarCollapsed} onClick={navTo} />
+          <SidebarLink id="settings" label="Pengaturan" icon={Settings} delay={240} activeTab={activeTab} sidebarCollapsed={sidebarCollapsed} onClick={navTo} />
+          <div className="pt-4 mt-4 border-t border-white/40">
             <a 
               href="/admin-scan"
               title="Scan & Tebus"
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-all mb-1 ${sidebarCollapsed ? 'md:justify-center' : ''}`}
+              style={{ animationDelay: '320ms' }}
+              className={`animate-bubble w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-all spring active:scale-95 mb-1 ${sidebarCollapsed ? 'md:justify-center' : ''}`}
             >
               <ScanLine size={18} className="flex-shrink-0" />
               <span className={`truncate ${sidebarCollapsed ? 'md:hidden' : ''}`}>Scan & Tebus</span>
@@ -449,7 +527,8 @@ const overduePawns = pawns.filter(isOverdue);
             <button 
               onClick={exportCSV} 
               title="Download CSV"
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-all ${sidebarCollapsed ? 'md:justify-center' : ''}`}
+              style={{ animationDelay: '400ms' }}
+              className={`animate-bubble w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-all spring active:scale-95 ${sidebarCollapsed ? 'md:justify-center' : ''}`}
             >
               <Download size={18} className="flex-shrink-0" />
               <span className={`truncate ${sidebarCollapsed ? 'md:hidden' : ''}`}>Download CSV</span>
@@ -457,8 +536,7 @@ const overduePawns = pawns.filter(isOverdue);
           </div>
         </nav>
 
-        {/* Footer */}
-        <div className={`border-t border-slate-100 ${sidebarCollapsed ? 'md:p-2 p-4' : 'p-4'}`}>
+        <div className={`border-t border-white/40 ${sidebarCollapsed ? 'md:p-2 p-4' : 'p-4'}`}>
           <div className={`flex items-center gap-3 mb-3 ${sidebarCollapsed ? 'md:justify-center' : ''}`}>
             <div className="w-8 h-8 bg-blue-100 rounded-full flex-shrink-0 flex items-center justify-center text-blue-600 font-bold text-xs">A</div>
             <div className={`${sidebarCollapsed ? 'md:hidden' : ''}`}><p className="text-xs font-bold text-slate-800">Admin</p><p className="text-[10px] text-slate-400">Online</p></div>
@@ -470,28 +548,42 @@ const overduePawns = pawns.filter(isOverdue);
         </div>
       </aside>
 
-      {/* Main Area */}
       <div className="flex-1 flex flex-col min-w-0 h-screen">
-        {/* Top Bar */}
-        <header className="bg-white border-b border-slate-100 px-4 h-14 flex items-center gap-3 shrink-0">
+        <header className="glass-nav px-4 h-14 flex items-center gap-3 shrink-0">
           <button onClick={() => setSidebarOpen(true)} className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg md:hidden"><Menu size={20} /></button>
           <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg hidden md:flex"><Menu size={20} /></button>
           <span className="text-sm font-bold text-slate-800 capitalize">{activeTab === 'overview' ? 'Dashboard' : activeTab === 'pawns' ? 'Data Gadaian' : activeTab === 'members' ? 'Kelola Member' : 'Pengaturan'}</span>
-          <span className="ml-auto text-[10px] font-bold text-slate-400 bg-slate-50 px-3 py-1.5 rounded-full hidden sm:block">{format(now, 'dd MMM yyyy')}</span>
+          <span className="ml-auto text-[10px] font-bold text-slate-400 bg-[#f2f2f7] px-3 py-1.5 rounded-full hidden sm:block">{format(now, 'dd MMM yyyy')}</span>
         </header>
 
-        {/* Content */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
 
           {/* === DASHBOARD === */}
           {activeTab === 'overview' && (
             <div className="space-y-6 max-w-6xl mx-auto">
-              <div>
-                <h1 className="text-xl md:text-2xl font-black text-slate-900">Dashboard Bulan {format(now, 'MMMM yyyy')}</h1>
-                <p className="text-slate-400 text-xs">Ringkasan performa penggadaian bulan ini</p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h1 className="text-xl md:text-2xl font-black text-slate-900">Dashboard Bulan {format(overviewMonth, 'MMMM yyyy')}</h1>
+                  <p className="text-slate-400 text-xs">{isCurrentMonth ? 'Ringkasan performa penggadaian bulan ini' : 'Ringkasan performa penggadaian bulan terpilih'}</p>
+                </div>
+                <div className="flex items-center gap-2 glass-card px-2 py-1.5 self-start sm:self-auto">
+                  <button onClick={goToPrevOverviewMonth} className="p-2 hover:bg-slate-100 rounded-lg text-slate-600 spring transition-all active:scale-90">
+                    <ChevronLeft size={16} />
+                  </button>
+                  <span className="text-xs font-black text-slate-800 min-w-[110px] text-center capitalize">
+                    {format(overviewMonth, 'MMMM yyyy')}
+                  </span>
+                  <button onClick={goToNextOverviewMonth} className="p-2 hover:bg-slate-100 rounded-lg text-slate-600 spring transition-all active:scale-90">
+                    <ChevronRight size={16} />
+                  </button>
+                  {!isCurrentMonth && (
+                    <button onClick={() => setOverviewMonth(new Date())} className="ml-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors">
+                      Bulan Ini
+                    </button>
+                  )}
+                </div>
               </div>
 
-              {/* Stats */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                 {[
                   { label: 'Pinjaman', value: `Rp ${mLoan.toLocaleString()}`, icon: DollarSign, color: 'blue' },
@@ -499,7 +591,7 @@ const overduePawns = pawns.filter(isOverdue);
                   { label: 'Item Masuk', value: `${mPawns.length} Unit`, icon: Smartphone, color: 'indigo' },
                   { label: 'Member', value: `${members.length} Orang`, icon: Users, color: 'amber' },
                 ].map((c, i) => (
-                  <div key={i} className="bg-white p-4 md:p-5 rounded-2xl border border-slate-100 shadow-sm">
+                  <div key={i} className="animate-fade-up glass-card p-4 md:p-5" style={{ animationDelay: `${i * 80}ms` }}>
                     <div className={`bg-${c.color}-100 w-9 h-9 rounded-xl flex items-center justify-center text-${c.color}-600 mb-3`}>
                       <c.icon size={18} />
                     </div>
@@ -510,7 +602,7 @@ const overduePawns = pawns.filter(isOverdue);
               </div>
 
               {overduePawns.length > 0 && (
-                <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center gap-3">
+                <div className="animate-fade-up bg-red-50/80 backdrop-blur-md border border-red-200 rounded-2xl p-4 flex items-center gap-3" style={{ animationDelay: '320ms' }}>
                   <div className="bg-red-100 p-2.5 rounded-xl text-red-600">
                    <AlertCircle size={20} />
                     </div>
@@ -522,15 +614,46 @@ const overduePawns = pawns.filter(isOverdue);
                  </div>
               )}
 
-              {/* Perputaran Modal: Uang Kembali vs Uang Terpendam */}
-              <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-100 shadow-sm">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-indigo-600 p-2.5 rounded-xl text-white"><Wallet size={20} /></div>
-                    <h4 className="text-base md:text-lg font-black text-slate-900">Perputaran Modal</h4>
-                  </div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Semua Waktu</span>
-                </div>
+              <div className="animate-fade-up glass-card p-5 md:p-6" style={{ animationDelay: '380ms' }}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+  <div className="flex items-center gap-3">
+    <div className="bg-indigo-600 p-2.5 rounded-xl text-white"><Wallet size={20} /></div>
+    <h4 className="text-base md:text-lg font-black text-slate-900">Perputaran Modal</h4>
+  </div>
+  <div className="flex items-center gap-1 bg-[#f2f2f7] rounded-full p-1 self-start sm:self-auto">
+    <button
+      onClick={() => setModalPeriod('all')}
+      className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors ${modalPeriod === 'all' ? 'bg-white shadow text-indigo-600' : 'text-slate-400'}`}
+    >
+      Semua Waktu
+    </button>
+    <button
+      onClick={() => setModalPeriod('month')}
+      className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors ${modalPeriod === 'month' ? 'bg-white shadow text-indigo-600' : 'text-slate-400'}`}
+    >
+      Per Bulan
+    </button>
+  </div>
+</div>
+
+{modalPeriod === 'month' && (
+  <div className="flex items-center justify-center gap-3 mb-4 bg-[#f2f2f7] rounded-xl py-2">
+    <button onClick={goToPrevModalMonth} className="p-1.5 hover:bg-white rounded-lg text-slate-600 spring transition-all active:scale-90">
+      <ChevronLeft size={16} />
+    </button>
+    <span className="text-xs font-black text-slate-800 min-w-[110px] text-center capitalize">
+      {format(modalPeriodMonth, 'MMMM yyyy')}
+    </span>
+    <button onClick={goToNextModalMonth} className="p-1.5 hover:bg-white rounded-lg text-slate-600 spring transition-all active:scale-90">
+      <ChevronRight size={16} />
+    </button>
+    {!isModalCurrentMonth && (
+      <button onClick={() => setModalPeriodMonth(new Date())} className="ml-1 px-2.5 py-1 rounded-lg text-[10px] font-bold text-indigo-600 bg-white hover:bg-indigo-50 transition-colors">
+        Bulan Ini
+      </button>
+    )}
+  </div>
+)}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                   <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100">
@@ -553,23 +676,22 @@ const overduePawns = pawns.filter(isOverdue);
                 </p>
               </div>
 
-              {/* Profit Breakdown + Recent */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-                <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-100 shadow-sm">
+                <div className="animate-fade-up glass-card p-5 md:p-6" style={{ animationDelay: '440ms' }}>
                   <div className="flex items-center gap-3 mb-6">
                     <div className="bg-slate-900 p-2.5 rounded-xl text-white"><PieChart size={20} /></div>
                     <h4 className="text-base md:text-lg font-black text-slate-900">Rincian Laba</h4>
                   </div>
                   <div className="space-y-3">
-                    <div className="flex justify-between items-center p-3 bg-slate-50 rounded-xl">
+                    <div className="flex justify-between items-center p-3 bg-white/60 backdrop-blur-sm rounded-2xl">
                       <span className="text-xs font-semibold text-slate-600">Bunga 10%</span>
                       <span className="text-sm font-black text-emerald-600">+ Rp {mProfit.toLocaleString()}</span>
                     </div>
-                    <div className="flex justify-between items-center p-3 bg-slate-50 rounded-xl">
+                    <div className="flex justify-between items-center p-3 bg-white/60 backdrop-blur-sm rounded-2xl">
                       <span className="text-xs font-semibold text-slate-600">Denda</span>
                       <span className="text-sm font-black text-emerald-600">+ Rp {mPenalty.toLocaleString()}</span>
                     </div>
-                    <div className="flex justify-between items-center p-3 bg-slate-50 rounded-xl">
+                    <div className="flex justify-between items-center p-3 bg-white/60 backdrop-blur-sm rounded-2xl">
                       <span className="text-xs font-semibold text-slate-600">Potongan</span>
                       <span className="text-sm font-black text-red-500">- Rp {mReduction.toLocaleString()}</span>
                     </div>
@@ -580,7 +702,7 @@ const overduePawns = pawns.filter(isOverdue);
                   </div>
                 </div>
 
-                <div className="bg-white p-5 md:p-6 rounded-2xl border border-slate-100 shadow-sm">
+                <div className="animate-fade-up glass-card p-5 md:p-6" style={{ animationDelay: '500ms' }}>
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
                       <div className="bg-blue-600 p-2.5 rounded-xl text-white"><Calendar size={20} /></div>
@@ -596,7 +718,7 @@ const overduePawns = pawns.filter(isOverdue);
                       </div>
                     )}
                     {recentPawns.map(p => (
-                      <div key={p.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors">
+                      <div key={p.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-[#f2f2f7] transition-colors">
                         <div className="bg-slate-100 w-9 h-9 rounded-lg flex items-center justify-center text-slate-400"><Smartphone size={16} /></div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-bold text-slate-800 truncate">{p.phoneBrand}</p>
@@ -621,34 +743,73 @@ const overduePawns = pawns.filter(isOverdue);
                 </button>
               </div>
 
-              {/* Selector Bulan */}
-              <div className="flex items-center justify-center gap-3 bg-white rounded-2xl border border-slate-100 shadow-sm p-3">
-                <button onClick={goToPrevMonth} className="p-2 hover:bg-slate-100 rounded-lg text-slate-600">
-                  <ChevronLeft size={18} />
-                </button>
-                <span className="text-sm font-black text-slate-800 min-w-[140px] text-center capitalize">
-                  {format(selectedMonth, 'MMMM yyyy')}
-                </span>
-                <button onClick={goToNextMonth} className="p-2 hover:bg-slate-100 rounded-lg text-slate-600">
-                  <ChevronRight size={18} />
-                </button>
+              {/* Selector Bulan + Menu Titik Tiga */}
+              <div className="relative z-30 flex items-center justify-between gap-3 glass-card p-3">
+                <div className="flex items-center justify-center gap-3 mx-auto">
+                  <button onClick={goToPrevMonth} className="p-2 hover:bg-slate-100 rounded-lg text-slate-600">
+                    <ChevronLeft size={18} />
+                  </button>
+                  <span className="text-sm font-black text-slate-800 min-w-[140px] text-center capitalize">
+                    {format(selectedMonth, 'MMMM yyyy')}
+                  </span>
+                  <button onClick={goToNextMonth} className="p-2 hover:bg-slate-100 rounded-lg text-slate-600">
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
+
+                <div className="absolute top-2 right-2" ref={monthMenuRef}>
+                  <button
+                    onClick={() => setMonthMenuOpen(!monthMenuOpen)}
+                    className="p-2 hover:bg-slate-100 rounded-lg text-slate-500"
+                  >
+                    <MoreVertical size={18} />
+                  </button>
+
+                  {monthMenuOpen && (
+                    <div className="absolute right-0 mt-1 w-56 bg-white/90 backdrop-blur-2xl border border-white/50 rounded-2xl shadow-xl z-40 overflow-hidden">
+                      <button
+                        onClick={() => { setMonthMenuOpen(false); deleteMonthData(); }}
+                        className="w-full flex items-center gap-2 px-4 py-3 text-xs font-bold text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        <Trash size={14} /> Hapus Data Bulan Ini
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+              {/* Filter Status - segmented control kaca, bubble geser saat diklik (FIXED) */}
+              <div className="relative grid grid-cols-3 bg-white/40 backdrop-blur-xl border border-white/60 rounded-full p-1 w-full sm:w-[380px] shadow-sm">
+                <div
+                  className={`absolute inset-y-1 rounded-full shadow-md backdrop-blur-md transition-all duration-400 spring ${
+                    statusFilter === 'all'
+                      ? 'left-1 bg-blue-500/80 shadow-blue-200'
+                      : statusFilter === 'active'
+                      ? 'left-[calc(33.333%+2px)] bg-amber-500/80 shadow-amber-200'
+                      : 'left-[calc(66.666%+2px)] bg-emerald-500/80 shadow-emerald-200'
+                  }`}
+                  style={{ width: 'calc(33.333% - 4px)' }}
+                />
+                <button onClick={() => setStatusFilter('all')} className={`relative z-10 min-w-0 px-2 py-1.5 rounded-full text-[11px] md:text-xs font-bold text-center truncate transition-colors duration-300 spring ${statusFilter === 'all' ? 'text-white' : 'text-slate-600'}`}>Semua</button>
+                <button onClick={() => setStatusFilter('active')} className={`relative z-10 min-w-0 px-2 py-1.5 rounded-full text-[11px] md:text-xs font-bold text-center truncate transition-colors duration-300 spring ${statusFilter === 'active' ? 'text-white' : 'text-slate-600'}`}>Belum Ditebus</button>
+                <button onClick={() => setStatusFilter('redeemed')} className={`relative z-10 min-w-0 px-2 py-1.5 rounded-full text-[11px] md:text-xs font-bold text-center truncate transition-colors duration-300 spring ${statusFilter === 'redeemed' ? 'text-white' : 'text-slate-600'}`}>Sudah Ditebus</button>
+              </div>
+
+              <div className="glass-card overflow-hidden">
                 <div className="p-2.5 md:p-4 border-b border-slate-50">
                   <div className="relative max-w-sm">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                    <input type="text" placeholder="Cari nama atau gadget..." className="w-full pl-7 pr-3 py-1.5 md:py-2 bg-slate-50 rounded-xl text-[10px] md:text-sm outline-none focus:ring-2 focus:ring-blue-500" value={search} onChange={e => setSearch(e.target.value)} />
+                    <input type="text" placeholder="Cari nama atau gadget..." className="w-full pl-7 pr-3 py-1.5 md:py-2 bg-white/70 backdrop-blur-sm border border-white/50 rounded-2xl text-[10px] md:text-sm outline-none focus:ring-2 focus:ring-blue-500" value={search} onChange={e => setSearch(e.target.value)} />
                   </div>
                 </div>
-                <div className="md:hidden p-2.5 space-y-2.5 bg-slate-50/40">
+                <div className="md:hidden p-2.5 space-y-2.5 bg-transparent">
                   {fPawns.length === 0 && (
-                    <div className="rounded-xl bg-white border border-slate-100 p-6 text-center text-[11px] text-slate-400">
+                    <div className="rounded-2xl bg-white/60 backdrop-blur-md border border-dashed border-slate-300 p-6 text-center text-[11px] text-slate-400">
                       Tidak ada data di bulan ini
                     </div>
                   )}
                   {fPawns.map((p) => (
-                    <div key={p.id} id={`pawn-${p.id}`} className={`rounded-xl bg-white border p-3 shadow-sm space-y-2.5 ${isOverdue(p) ? 'border-red-300 ring-2 ring-red-100' : 'border-slate-100'}`}>
+                    <div key={p.id} id={`pawn-${p.id}`} className={`rounded-2xl bg-white/70 backdrop-blur-md border p-3 shadow-sm space-y-2.5 ${isOverdue(p) ? 'border-red-300 ring-2 ring-red-100' : 'border-white/50'}`}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="text-[11px] font-black text-slate-900 truncate">{p.name}</p>
@@ -701,7 +862,7 @@ const overduePawns = pawns.filter(isOverdue);
 
                 <div className="hidden md:block overflow-x-auto touch-pan-x [scrollbar-width:thin]">
                   <table className="min-w-[760px] w-full text-[9px] md:text-sm leading-tight">
-                    <thead><tr className="bg-slate-50 text-slate-500 text-[8px] md:text-xs">
+                    <thead><tr className="bg-[#f2f2f7] text-slate-500 text-[8px] md:text-xs">
                       <th className="text-left px-1.5 py-2 md:p-3 font-semibold whitespace-nowrap">Tgl</th>
                       <th className="text-left px-1.5 py-2 md:p-3 font-semibold whitespace-nowrap">Nama</th>
                       <th className="text-left px-1.5 py-2 md:p-3 font-semibold whitespace-nowrap">Gadget</th>
@@ -713,7 +874,7 @@ const overduePawns = pawns.filter(isOverdue);
                     </tr></thead>
                     <tbody>
                       {fPawns.map((p, index) => (
-                        <tr key={p.id} id={`pawn-${p.id}`} className={`border-t border-slate-50 hover:bg-slate-50/60 ${isOverdue(p) ? 'bg-red-50/50 border-l-4 border-l-red-400' : index % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
+                        <tr key={p.id} id={`pawn-${p.id}`} className={`border-t border-slate-50 hover:bg-[#f2f2f7]/60 ${isOverdue(p) ? 'bg-red-50/50 border-l-4 border-l-red-400' : index % 2 === 0 ? 'bg-white' : 'bg-[#f2f2f7]/30'}`}>
                           <td className="px-1.5 py-2 md:p-3 whitespace-nowrap text-[8px] md:text-xs text-slate-500">{format(new Date(p.date), 'dd MMM, HH:mm')}</td>
                           <td className="px-1.5 py-2 md:p-3 font-bold text-slate-800 text-[9px] md:text-xs whitespace-nowrap">{p.name}</td>
                           <td className="px-1.5 py-2 md:p-3 text-[8px] md:text-xs text-slate-600 whitespace-nowrap">{p.phoneBrand}</td>
@@ -762,23 +923,22 @@ const overduePawns = pawns.filter(isOverdue);
                   <Users size={16} /> Tambah Member
                 </button>
               </div>
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+              <div className="glass-card overflow-hidden">
                 <div className="p-2.5 md:p-4 border-b border-slate-50">
                   <div className="relative max-w-sm">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                    <input type="text" placeholder="Cari member..." className="w-full pl-7 pr-3 py-1.5 md:py-2 bg-slate-50 rounded-xl text-[10px] md:text-sm outline-none focus:ring-2 focus:ring-blue-500" value={search} onChange={e => setSearch(e.target.value)} />
+                    <input type="text" placeholder="Cari member..." className="w-full pl-7 pr-3 py-1.5 md:py-2 bg-white/70 backdrop-blur-sm border border-white/50 rounded-2xl text-[10px] md:text-sm outline-none focus:ring-2 focus:ring-blue-500" value={search} onChange={e => setSearch(e.target.value)} />
                   </div>
                 </div>
 
-                {/* Mobile: Kartu */}
-                <div className="md:hidden p-2.5 space-y-2.5 bg-slate-50/40">
+                <div className="md:hidden p-2.5 space-y-2.5 bg-transparent">
                   {fMembers.length === 0 && (
-                    <div className="rounded-xl bg-white border border-slate-100 p-6 text-center text-[11px] text-slate-400">
+                    <div className="rounded-2xl bg-white/60 backdrop-blur-md border border-dashed border-slate-300 p-6 text-center text-[11px] text-slate-400">
                       Tidak ada member
                     </div>
                   )}
                   {fMembers.map((m) => (
-                    <div key={m.id} className="rounded-xl bg-white border border-slate-100 p-3 shadow-sm space-y-2.5">
+                    <div key={m.id} className="rounded-2xl bg-white/70 backdrop-blur-md border border-white/50 p-3 shadow-sm space-y-2.5">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="text-[11px] font-black text-slate-900 truncate">{m.name}</p>
@@ -812,10 +972,9 @@ const overduePawns = pawns.filter(isOverdue);
                   ))}
                 </div>
 
-                {/* Desktop: Tabel */}
                 <div className="hidden md:block overflow-x-auto touch-pan-x [scrollbar-width:thin]">
                   <table className="min-w-[600px] w-full text-[10px] md:text-sm">
-                    <thead><tr className="bg-slate-50 text-slate-500 text-[9px] md:text-xs">
+                    <thead><tr className="bg-[#f2f2f7] text-slate-500 text-[9px] md:text-xs">
                       <th className="text-left p-2 md:p-3 font-semibold whitespace-nowrap">ID</th>
                       <th className="text-left p-2 md:p-3 font-semibold whitespace-nowrap">Nama</th>
                       <th className="text-left p-2 md:p-3 font-semibold whitespace-nowrap">WhatsApp</th>
@@ -824,7 +983,7 @@ const overduePawns = pawns.filter(isOverdue);
                     </tr></thead>
                     <tbody>
                       {fMembers.map((m, index) => (
-                        <tr key={m.id} className={`border-t border-slate-50 hover:bg-slate-50/60 ${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}`}>
+                        <tr key={m.id} className={`border-t border-slate-50 hover:bg-[#f2f2f7]/60 ${index % 2 === 0 ? 'bg-white' : 'bg-[#f2f2f7]/30'}`}>
                           <td className="p-2 md:p-3 font-mono text-[9px] md:text-[10px] text-slate-400 whitespace-nowrap">{m.id}</td>
                           <td className="p-2 md:p-3 font-bold text-slate-800 text-[10px] md:text-xs whitespace-nowrap">{m.name}</td>
                           <td className="p-2 md:p-3 text-[9px] md:text-xs text-slate-600 whitespace-nowrap">{m.phone}</td>
@@ -857,8 +1016,7 @@ const overduePawns = pawns.filter(isOverdue);
                 <p className="text-xs text-slate-400">Konfigurasi sistem dan keamanan</p>
               </div>
 
-              {/* Keamanan */}
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+              <div className="glass-card overflow-hidden">
                 <div className="p-4 border-b border-slate-50 flex items-center gap-3">
                   <div className="bg-red-100 p-2 rounded-xl"><Lock className="text-red-600" size={18} /></div>
                   <div>
@@ -872,7 +1030,7 @@ const overduePawns = pawns.filter(isOverdue);
                     <div className="relative">
                       <input 
                         type={showPassword ? 'text' : 'password'} 
-                        className="w-full bg-slate-50 p-3 pr-12 rounded-xl text-sm font-mono" 
+                        className="w-full bg-white/70 backdrop-blur-sm border border-white/50 p-3 pr-12 rounded-2xl text-sm font-mono" 
                         value={settingsData.adminPassword} 
                         onChange={e => setSettingsData({ ...settingsData, adminPassword: e.target.value })} 
                       />
@@ -885,8 +1043,7 @@ const overduePawns = pawns.filter(isOverdue);
                 </div>
               </div>
 
-              {/* Info Toko */}
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+              <div className="glass-card overflow-hidden">
                 <div className="p-4 border-b border-slate-50 flex items-center gap-3">
                   <div className="bg-blue-100 p-2 rounded-xl"><Store className="text-blue-600" size={18} /></div>
                   <div>
@@ -897,21 +1054,20 @@ const overduePawns = pawns.filter(isOverdue);
                 <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Nama Toko</label>
-                    <input className="w-full bg-slate-50 p-3 rounded-xl text-sm" value={settingsData.storeName} onChange={e => setSettingsData({ ...settingsData, storeName: e.target.value })} />
+                    <input className="w-full bg-white/70 backdrop-blur-sm border border-white/50 p-3 rounded-2xl text-sm" value={settingsData.storeName} onChange={e => setSettingsData({ ...settingsData, storeName: e.target.value })} />
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">No. Telepon</label>
-                    <input className="w-full bg-slate-50 p-3 rounded-xl text-sm" value={settingsData.storePhone} onChange={e => setSettingsData({ ...settingsData, storePhone: e.target.value })} placeholder="08xxxxxxxxxx" />
+                    <input className="w-full bg-white/70 backdrop-blur-sm border border-white/50 p-3 rounded-2xl text-sm" value={settingsData.storePhone} onChange={e => setSettingsData({ ...settingsData, storePhone: e.target.value })} placeholder="08xxxxxxxxxx" />
                   </div>
                   <div className="md:col-span-2">
                     <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Alamat</label>
-                    <input className="w-full bg-slate-50 p-3 rounded-xl text-sm" value={settingsData.storeAddress} onChange={e => setSettingsData({ ...settingsData, storeAddress: e.target.value })} placeholder="Jl. Contoh No. 123" />
+                    <input className="w-full bg-white/70 backdrop-blur-sm border border-white/50 p-3 rounded-2xl text-sm" value={settingsData.storeAddress} onChange={e => setSettingsData({ ...settingsData, storeAddress: e.target.value })} placeholder="Jl. Contoh No. 123" />
                   </div>
                 </div>
               </div>
 
-              {/* Pengaturan Bunga & Poin */}
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+              <div className="glass-card overflow-hidden">
                 <div className="p-4 border-b border-slate-50 flex items-center gap-3">
                   <div className="bg-emerald-100 p-2 rounded-xl"><Percent className="text-emerald-600" size={18} /></div>
                   <div>
@@ -922,29 +1078,28 @@ const overduePawns = pawns.filter(isOverdue);
                 <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Persentase Bunga (%)</label>
-                    <input type="number" className="w-full bg-slate-50 p-3 rounded-xl text-sm" value={settingsData.interestRate} onChange={e => setSettingsData({ ...settingsData, interestRate: e.target.value })} />
+                    <input type="number" className="w-full bg-white/70 backdrop-blur-sm border border-white/50 p-3 rounded-2xl text-sm" value={settingsData.interestRate} onChange={e => setSettingsData({ ...settingsData, interestRate: e.target.value })} />
                     <p className="text-[9px] text-slate-400 mt-1">Bunga yang dikenakan per transaksi</p>
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Nilai Tukar Poin (Rp)</label>
-                    <input type="number" className="w-full bg-slate-50 p-3 rounded-xl text-sm" value={settingsData.pointValue} onChange={e => setSettingsData({ ...settingsData, pointValue: e.target.value })} />
+                    <input type="number" className="w-full bg-white/70 backdrop-blur-sm border border-white/50 p-3 rounded-2xl text-sm" value={settingsData.pointValue} onChange={e => setSettingsData({ ...settingsData, pointValue: e.target.value })} />
                     <p className="text-[9px] text-slate-400 mt-1">1 Poin = Rp {parseInt(settingsData.pointValue).toLocaleString()}</p>
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Poin per Kelipatan</label>
-                    <input type="number" className="w-full bg-slate-50 p-3 rounded-xl text-sm" value={settingsData.pointsPerLoan} onChange={e => setSettingsData({ ...settingsData, pointsPerLoan: e.target.value })} />
+                    <input type="number" className="w-full bg-white/70 backdrop-blur-sm border border-white/50 p-3 rounded-2xl text-sm" value={settingsData.pointsPerLoan} onChange={e => setSettingsData({ ...settingsData, pointsPerLoan: e.target.value })} />
                     <p className="text-[9px] text-slate-400 mt-1">Poin yang didapat member</p>
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Kelipatan Pinjaman (Rp)</label>
-                    <input type="number" className="w-full bg-slate-50 p-3 rounded-xl text-sm" value={settingsData.pointLoanThreshold} onChange={e => setSettingsData({ ...settingsData, pointLoanThreshold: e.target.value })} />
+                    <input type="number" className="w-full bg-white/70 backdrop-blur-sm border border-white/50 p-3 rounded-2xl text-sm" value={settingsData.pointLoanThreshold} onChange={e => setSettingsData({ ...settingsData, pointLoanThreshold: e.target.value })} />
                     <p className="text-[9px] text-slate-400 mt-1">Per Rp {parseInt(settingsData.pointLoanThreshold).toLocaleString()}</p>
                   </div>
                 </div>
               </div>
 
-              {/* Backup & Restore */}
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+              <div className="glass-card overflow-hidden">
                 <div className="p-4 border-b border-slate-50 flex items-center gap-3">
                   <div className="bg-purple-100 p-2 rounded-xl"><Database className="text-purple-600" size={18} /></div>
                   <div>
@@ -966,7 +1121,6 @@ const overduePawns = pawns.filter(isOverdue);
                 </div>
               </div>
 
-              {/* Danger Zone */}
               <div className="bg-white rounded-2xl border border-red-200 shadow-sm overflow-hidden">
                 <div className="p-4 border-b border-red-100 flex items-center gap-3 bg-red-50">
                   <div className="bg-red-100 p-2 rounded-xl"><Trash className="text-red-600" size={18} /></div>
@@ -983,7 +1137,6 @@ const overduePawns = pawns.filter(isOverdue);
                 </div>
               </div>
 
-              {/* Save Button */}
               <div className="sticky bottom-4 pt-4">
                 <button onClick={saveSettings} className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white font-black py-4 rounded-2xl text-sm shadow-xl shadow-blue-200 active:scale-95 transition-transform">
                   <Save size={18} /> Simpan Pengaturan
@@ -995,48 +1148,46 @@ const overduePawns = pawns.filter(isOverdue);
         </main>
       </div>
 
-      {/* === MODALS === */}
-
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-[200] flex items-end md:items-center justify-center p-0 md:p-4 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-lg rounded-t-3xl md:rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white/90 backdrop-blur-2xl w-full max-w-lg rounded-t-[28px] md:rounded-[28px] p-6 shadow-2xl max-h-[90vh] overflow-y-auto border border-white/50">
             <h2 className="text-lg font-black mb-5">{selectedPawn ? 'Edit Gadaian' : 'Tambah Gadaian'}</h2>
             <form onSubmit={savePawn} className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Nama</label>
-                <input required className="w-full bg-slate-50 p-3 rounded-xl text-sm" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                <input required className="w-full bg-white/70 backdrop-blur-sm border border-white/50 p-3 rounded-2xl text-sm" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Tanggal</label>
-                <input type="datetime-local" className="w-full bg-slate-50 p-3 rounded-xl text-sm" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
+                <input type="datetime-local" className="w-full bg-white/70 backdrop-blur-sm border border-white/50 p-3 rounded-2xl text-sm" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Gadget</label>
-                <input required className="w-full bg-slate-50 p-3 rounded-xl text-sm" value={formData.phoneBrand} onChange={e => setFormData({ ...formData, phoneBrand: e.target.value })} />
+                <input required className="w-full bg-white/70 backdrop-blur-sm border border-white/50 p-3 rounded-2xl text-sm" value={formData.phoneBrand} onChange={e => setFormData({ ...formData, phoneBrand: e.target.value })} />
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Pinjaman (Rp)</label>
-                <input type="number" required className="w-full bg-slate-50 p-3 rounded-xl text-sm" value={formData.loanAmount} onChange={e => setFormData({ ...formData, loanAmount: e.target.value })} />
+                <input type="number" required className="w-full bg-white/70 backdrop-blur-sm border border-white/50 p-3 rounded-2xl text-sm" value={formData.loanAmount} onChange={e => setFormData({ ...formData, loanAmount: e.target.value })} />
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Pot. Bunga (Rp)</label>
-                <input type="number" className="w-full bg-slate-50 p-3 rounded-xl text-sm" value={formData.interestReduction} onChange={e => setFormData({ ...formData, interestReduction: e.target.value })} />
+                <input type="number" className="w-full bg-white/70 backdrop-blur-sm border border-white/50 p-3 rounded-2xl text-sm" value={formData.interestReduction} onChange={e => setFormData({ ...formData, interestReduction: e.target.value })} />
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Denda (Rp)</label>
-                <input type="number" className="w-full bg-slate-50 p-3 rounded-xl text-sm" value={formData.penalty} onChange={e => setFormData({ ...formData, penalty: e.target.value })} />
+                <input type="number" className="w-full bg-white/70 backdrop-blur-sm border border-white/50 p-3 rounded-2xl text-sm" value={formData.penalty} onChange={e => setFormData({ ...formData, penalty: e.target.value })} />
               </div>
 
               <div className="col-span-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Member</label>
-                <select className="w-full bg-slate-50 p-3 rounded-xl text-sm" value={formData.memberId} onChange={e => setFormData({ ...formData, memberId: e.target.value })}>
+                <select className="w-full bg-white/70 backdrop-blur-sm border border-white/50 p-3 rounded-2xl text-sm" value={formData.memberId} onChange={e => setFormData({ ...formData, memberId: e.target.value })}>
                   <option value="">Bukan Member</option>
                   {members.map(m => <option key={m.id} value={m.id}>{m.name} ({m.phone})</option>)}
                 </select>
               </div>
               <div className="col-span-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Status Gadai</label>
-                <select className="w-full bg-slate-50 p-3 rounded-xl text-sm" value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })}>
+                <select className="w-full bg-white/70 backdrop-blur-sm border border-white/50 p-3 rounded-2xl text-sm" value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })}>
                   <option value="active">Aktif / Belum Diambil</option>
                   <option value="redeemed">Sudah Ditebus / Sudah Diambil</option>
                 </select>
@@ -1052,25 +1203,25 @@ const overduePawns = pawns.filter(isOverdue);
 
       {isMemberModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-[200] flex items-end md:items-center justify-center p-0 md:p-4 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-md rounded-t-3xl md:rounded-3xl p-6 shadow-2xl">
+          <div className="bg-white/90 backdrop-blur-2xl w-full max-w-md rounded-t-[28px] md:rounded-[28px] p-6 shadow-2xl border border-white/50">
             <h2 className="text-lg font-black mb-5">{selectedMember ? 'Edit Member' : 'Tambah Member'}</h2>
             <form onSubmit={saveMember} className="space-y-3">
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Nama Lengkap</label>
-                <input required className="w-full bg-slate-50 p-3 rounded-xl text-sm" value={memberForm.name} onChange={e => setMemberForm({ ...memberForm, name: e.target.value })} />
+                <input required className="w-full bg-white/70 backdrop-blur-sm border border-white/50 p-3 rounded-2xl text-sm" value={memberForm.name} onChange={e => setMemberForm({ ...memberForm, name: e.target.value })} />
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">No. WhatsApp</label>
-                <input required type="tel" className="w-full bg-slate-50 p-3 rounded-xl text-sm" value={memberForm.phone} onChange={e => setMemberForm({ ...memberForm, phone: e.target.value })} />
+                <input required type="tel" className="w-full bg-white/70 backdrop-blur-sm border border-white/50 p-3 rounded-2xl text-sm" value={memberForm.phone} onChange={e => setMemberForm({ ...memberForm, phone: e.target.value })} />
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Password</label>
-                <input required type="text" className="w-full bg-slate-50 p-3 rounded-xl text-sm" value={memberForm.password} onChange={e => setMemberForm({ ...memberForm, password: e.target.value })} />
+                <input required type="text" className="w-full bg-white/70 backdrop-blur-sm border border-white/50 p-3 rounded-2xl text-sm" value={memberForm.password} onChange={e => setMemberForm({ ...memberForm, password: e.target.value })} />
               </div>
               {selectedMember && (
                 <div>
                   <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Poin</label>
-                  <input type="number" className="w-full bg-slate-50 p-3 rounded-xl text-sm" value={memberForm.points} onChange={e => setMemberForm({ ...memberForm, points: parseInt(e.target.value) })} />
+                  <input type="number" className="w-full bg-white/70 backdrop-blur-sm border border-white/50 p-3 rounded-2xl text-sm" value={memberForm.points} onChange={e => setMemberForm({ ...memberForm, points: parseInt(e.target.value) })} />
                 </div>
               )}
               <div className="flex gap-2 pt-3">
@@ -1084,20 +1235,19 @@ const overduePawns = pawns.filter(isOverdue);
 
      {isQRModalOpen && selectedPawn && (
   <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-4 backdrop-blur-sm">
-    <div className="bg-white rounded-3xl w-full max-w-xs p-8 shadow-2xl text-center">
+    <div className="bg-white/90 backdrop-blur-2xl rounded-[28px] w-full max-w-xs p-8 shadow-2xl text-center border border-white/50">
       <h2 className="text-xl font-black mb-1">E-Kwitansi</h2>
       <p className="text-slate-400 text-[10px] uppercase tracking-widest mb-6">Scan QR Code</p>
       <div className="bg-white p-4 inline-block border-4 border-slate-50 rounded-2xl mb-6">
         <QRCodeSVG value={`${window.location.origin}/view/${selectedPawn.accessCode}`} size={180} />
       </div>
-      <div className="bg-slate-50 p-3 rounded-xl font-mono text-lg font-black tracking-widest mb-6">{selectedPawn.accessCode}</div>
+      <div className="bg-slate-100/80 backdrop-blur-sm p-3 rounded-2xl font-mono text-lg font-black tracking-widest mb-6">{selectedPawn.accessCode}</div>
       <div className="flex gap-2">
         <button onClick={() => window.print()} className="flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl active:scale-95 transition-transform">Cetak</button>
         <button onClick={() => setIsQRModalOpen(false)} className="flex-1 bg-slate-900 text-white font-bold py-3 rounded-xl active:scale-95 transition-transform">Tutup</button>
       </div>
     </div>
 
-    {/* Area khusus buat dicetak, tersembunyi di layar normal */}
     <div id="print-area" className="hidden">
       <div style={{ padding: '8px', fontFamily: 'monospace', fontSize: '11px', textAlign: 'center' }}>
         <p style={{ fontWeight: 'bold', fontSize: '14px', margin: 0 }}>{settingsData.storeName}</p>

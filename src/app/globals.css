@@ -6,61 +6,193 @@
 }
 
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  --background: #f2f2f7;
+  --foreground: #1c1c1e;
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-ios: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.15); border-radius: 999px; }
+::-webkit-scrollbar-track { background: transparent; }
 
 @layer components {
   .excel-table {
     @apply w-full border-collapse bg-white shadow-sm rounded-lg overflow-hidden;
   }
-
   .excel-table th {
     @apply bg-slate-100 text-slate-700 font-semibold p-3 text-left border-b border-slate-200 text-sm;
   }
-
   .excel-table td {
     @apply p-3 border-b border-slate-100 text-sm text-slate-600;
   }
-
   .excel-table tr:hover {
     @apply bg-slate-50;
   }
 
+  /* === Tombol gaya iOS (pill, spring press) === */
   .btn-primary {
-    @apply bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-all active:scale-95 font-medium;
+    @apply relative inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-full font-semibold
+           shadow-[0_8px_20px_-6px_rgba(37,99,235,0.55)]
+           transition-all duration-300 active:scale-95;
+    transition-timing-function: var(--ease-spring);
   }
+  .btn-primary:hover { @apply bg-blue-500 shadow-[0_10px_26px_-6px_rgba(37,99,235,0.65)]; }
 
   .btn-secondary {
-    @apply bg-slate-200 hover:bg-slate-300 text-slate-800 px-4 py-2 rounded-md transition-all active:scale-95 font-medium;
+    @apply relative inline-flex items-center gap-2 bg-white/70 backdrop-blur-xl text-slate-800 px-6 py-3 rounded-full font-semibold
+           border border-white/60 shadow-[0_4px_16px_-4px_rgba(0,0,0,0.1)]
+           transition-all duration-300 active:scale-95;
+    transition-timing-function: var(--ease-spring);
   }
-  
+  .btn-secondary:hover { @apply bg-white; }
+
   .card {
-    @apply bg-white p-6 rounded-xl shadow-sm border border-slate-200;
+    @apply bg-white p-6 rounded-2xl shadow-sm border border-slate-200;
+  }
+
+  /* === Permukaan kaca (glassmorphism) === */
+  .glass-nav {
+    @apply sticky top-0 z-50 bg-white/60 backdrop-blur-2xl border-b border-white/40;
+  }
+  .glass-card {
+    @apply bg-white/70 backdrop-blur-2xl border border-white/50 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.12)] rounded-[28px];
+  }
+  .glass-panel {
+    @apply bg-white/10 backdrop-blur-2xl border border-white/20 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.25)] rounded-[28px];
+  }
+  .glass-pill {
+    @apply bg-white/60 backdrop-blur-xl border border-white/50 rounded-full;
+  }
+  .ios-input {
+    @apply w-full px-4 py-3 bg-white/70 border border-white/60 rounded-2xl outline-none
+           focus:ring-2 focus:ring-blue-500 transition-all;
+  }
+
+  .spring {
+    transition-timing-function: var(--ease-spring);
   }
 }
 
- @media print {
-  body * {
-    visibility: hidden;
-  }
-  #print-area, #print-area * {
-    visibility: visible;
-  }
-  #print-area {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 58mm;
-  }
-  @page {
-    size: 58mm auto;
-    margin: 0;
+/* === Blob gradient mengambang di background === */
+.ios-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(60px);
+  opacity: 0.45;
+  animation: blob-float 14s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+.ios-blob.delay-2 { animation-delay: -4s; }
+.ios-blob.delay-3 { animation-delay: -8s; }
+
+@keyframes blob-float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -40px) scale(1.1); }
+  66% { transform: translate(-25px, 25px) scale(0.95); }
+}
+
+/* === Overlay kaca ala iOS (pengganti overlay gelap biasa) === */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.glass-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  animation: fade-in 0.35s var(--ease-ios) both;
+}
+
+/* === Animasi masuk (entrance) === */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-up {
+  animation: fade-up 0.7s var(--ease-spring) both;
+}
+.delay-100 { animation-delay: 0.1s; }
+.delay-200 { animation-delay: 0.2s; }
+.delay-300 { animation-delay: 0.3s; }
+.delay-400 { animation-delay: 0.4s; }
+
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-pop {
+  animation: pop-in 0.5s var(--ease-spring) both;
+}
+
+/* === Efek "gelembung" jatuh dari atas ke bawah (untuk menu sidebar dsb) === */
+@keyframes bubble-in {
+  0% { opacity: 0; transform: translateY(-18px) scale(0.8); }
+  55% { opacity: 1; transform: translateY(4px) scale(1.04); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-bubble {
+  animation: bubble-in 0.6s var(--ease-spring) both;
+}
+
+/* === Garis pemindai QR === */
+@keyframes scan-beam {
+  0% { top: 4%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { top: 92%; opacity: 0; }
+}
+.scan-beam {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #34d399, transparent);
+  box-shadow: 0 0 12px 2px rgba(52, 211, 153, 0.8);
+  animation: scan-beam 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* === Shimmer loading === */
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg, #e2e8f0 0%, #f1f5f9 50%, #e2e8f0 100%);
+  background-size: 800px 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+@media print {
+  body * { visibility: hidden; }
+  #print-area, #print-area * { visibility: visible; }
+  #print-area { position: absolute; top: 0; left: 0; width: 58mm; }
+  @page { size: 58mm auto; margin: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

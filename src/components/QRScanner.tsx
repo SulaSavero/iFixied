@@ -70,19 +70,22 @@ export default function QRScanner() {
 
   return (
     <div className="flex flex-col items-center">
-      <div className="w-full max-w-sm bg-white rounded-3xl overflow-hidden shadow-2xl border border-slate-100">
-        <div className="bg-blue-600 p-6 text-white text-center">
+      <div className="animate-pop glass-card w-full max-w-sm overflow-hidden">
+        <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-6 text-white text-center">
           <Camera className="mx-auto mb-2" size={32} />
           <h2 className="text-xl font-bold">Scan QR Code</h2>
           <p className="text-blue-100 text-sm">Arahkan kamera ke kode QR pada kwitansi</p>
         </div>
-        
-        <div className="p-4 bg-slate-50">
-          <div id="reader" className="overflow-hidden rounded-2xl border-4 border-white shadow-inner"></div>
+
+        <div className="p-4">
+          <div className="relative overflow-hidden rounded-2xl border-4 border-white shadow-inner">
+            <div id="reader"></div>
+            <div className="scan-beam" />
+          </div>
         </div>
 
         {error && (
-          <div className="p-4 text-red-500 text-center text-sm font-medium bg-red-50">
+          <div className="mx-4 mb-2 p-3 text-red-600 text-center text-sm font-medium bg-red-50 rounded-xl">
             {error}
           </div>
         )}
@@ -93,31 +96,29 @@ export default function QRScanner() {
             <span className="flex-shrink mx-4 text-slate-400 text-xs uppercase font-bold">Atau Masukkan Kode</span>
             <div className="flex-grow border-t border-slate-200"></div>
           </div>
-          
-          <div className="flex gap-2">
-            <input 
-              type="text" 
-              placeholder="Contoh: A1B2C3D4"
-              className="flex-1 px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none uppercase font-mono"
-              onChange={(e) => {
-                if (e.target.value.length >= 8) {
-                  router.push(`/view/${e.target.value.toUpperCase()}`);
-                }
-              }}
-            />
-          </div>
+
+          <input
+            type="text"
+            placeholder="Contoh: A1B2C3D4"
+            className="ios-input uppercase font-mono text-sm"
+            onChange={(e) => {
+              if (e.target.value.length >= 8) {
+                router.push(`/view/${e.target.value.toUpperCase()}`);
+              }
+            }}
+          />
         </div>
 
-        <div className="p-6 text-center border-t border-slate-50">
-          <button 
+        <div className="p-6 text-center border-t border-white/40">
+          <button
             onClick={() => router.push('/')}
-            className="text-slate-500 flex items-center gap-2 mx-auto hover:text-slate-800 transition-colors"
+            className="text-slate-500 flex items-center gap-2 mx-auto hover:text-slate-800 transition-colors font-medium"
           >
             <X size={20} /> Batal & Kembali
           </button>
         </div>
       </div>
-      
+
       <div className="mt-8 text-slate-400 text-sm text-center max-w-xs px-4">
         Pastikan Anda memberikan izin akses kamera pada browser/aplikasi Anda.
       </div>

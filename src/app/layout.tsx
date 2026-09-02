@@ -1,16 +1,27 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
+import SuppressBenignErrors from "@/components/SuppressBenignErrors";
 
 export const metadata: Metadata = {
   title: "sFixied - Sistem Penggadaian Modern",
   description: "Platform penggadaian gadget terpercaya dengan sistem pencatatan digital.",
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#f2f2f7",
+};
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
-      <body className="bg-slate-100 text-slate-900 antialiased">{children}</body>
+    <html lang="id">
+      <body className="antialiased overflow-x-hidden">
+        <SuppressBenignErrors />
+        {children}
+      </body>
     </html>
   );
 }
