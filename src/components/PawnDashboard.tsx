@@ -481,8 +481,10 @@ const isModalCurrentMonth = modalPeriodMonth.getFullYear() === new Date().getFul
 
   return (
     <div className="h-screen flex overflow-hidden bg-[#f2f2f7] relative">
-      <div className="ios-blob w-[420px] h-[420px] bg-blue-300 -top-40 -right-40" />
-      <div className="ios-blob delay-3 w-[320px] h-[320px] bg-purple-200 bottom-0 left-1/3" />
+{/* 
+<div className="ios-blob w-[420px] h-[420px] bg-blue-300 -top-40 -right-40" />
+<div className="ios-blob delay-3 w-[320px] h-[320px] bg-purple-200 bottom-0 left-1/3" />
+*/}
 
       {sidebarOpen && <div className="glass-overlay z-40 md:hidden" onClick={() => setSidebarOpen(false)} />}
 
@@ -549,7 +551,10 @@ const isModalCurrentMonth = modalPeriodMonth.getFullYear() === new Date().getFul
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 h-screen">
-        <header className="glass-nav px-4 h-14 flex items-center gap-3 shrink-0">
+        <header 
+  className="glass-nav px-4 flex items-center gap-3 shrink-0"
+  style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.625rem)', paddingBottom: '0.625rem' }}
+>
           <button onClick={() => setSidebarOpen(true)} className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg md:hidden"><Menu size={20} /></button>
           <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg hidden md:flex"><Menu size={20} /></button>
           <span className="text-sm font-bold text-slate-800 capitalize">{activeTab === 'overview' ? 'Dashboard' : activeTab === 'pawns' ? 'Data Gadaian' : activeTab === 'members' ? 'Kelola Member' : 'Pengaturan'}</span>
@@ -809,7 +814,7 @@ const isModalCurrentMonth = modalPeriodMonth.getFullYear() === new Date().getFul
                     </div>
                   )}
                   {fPawns.map((p) => (
-                    <div key={p.id} id={`pawn-${p.id}`} className={`rounded-2xl bg-white/70 backdrop-blur-md border p-3 shadow-sm space-y-2.5 ${isOverdue(p) ? 'border-red-300 ring-2 ring-red-100' : 'border-white/50'}`}>
+                    <div key={p.id} id={`pawn-${p.id}`} className={`rounded-2xl bg-white border p-3 shadow-sm space-y-2.5 ${isOverdue(p) ? 'border-red-300 ring-2 ring-red-100' : 'border-white/50'}`}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="text-[11px] font-black text-slate-900 truncate">{p.name}</p>

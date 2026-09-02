@@ -67,11 +67,13 @@ body {
   }
 
   /* === Permukaan kaca (glassmorphism) === */
-  .glass-nav {
-    @apply sticky top-0 z-50 bg-white/60 backdrop-blur-2xl border-b border-white/40;
-  }
   .glass-card {
-    @apply bg-white/70 backdrop-blur-2xl border border-white/50 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.12)] rounded-[28px];
+  @apply bg-white/80 border border-white/50 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.12)] rounded-[28px];
+  backdrop-filter: blur(12px); /* turun dari blur besar */
+  }
+  .glass-nav {
+  @apply sticky top-0 z-50 bg-white/80 border-b border-white/40;
+  backdrop-filter: blur(12px);
   }
   .glass-panel {
     @apply bg-white/10 backdrop-blur-2xl border border-white/20 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.25)] rounded-[28px];
