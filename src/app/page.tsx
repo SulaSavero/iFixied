@@ -10,8 +10,8 @@ export default function LandingPage() {
       <div className="ios-blob delay-3 w-[340px] h-[340px] bg-amber-300 bottom-0 left-1/4" />
 
       {/* Nav */}
-      <header className="glass-nav">
-        <nav className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+      <header className="glass-nav" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+  <nav className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="bg-blue-600 p-1.5 rounded-xl shadow-md shadow-blue-200">
               <ShieldCheck className="text-white w-6 h-6" />
