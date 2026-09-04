@@ -498,7 +498,10 @@ const isModalCurrentMonth = modalPeriodMonth.getFullYear() === new Date().getFul
         ${sidebarCollapsed ? 'md:w-[68px]' : 'md:w-60'}
         w-60
       `}>
-        <div className={`flex items-center border-b border-white/40 h-14 shrink-0 ${sidebarCollapsed ? 'justify-center px-2' : 'px-5 justify-between'}`}>
+        <div 
+         className={`flex items-center border-b border-slate-100 h-14 shrink-0 ${sidebarCollapsed ? 'justify-center px-2' : 'px-5 justify-between'}`}
+          style={{ paddingTop: 'env(safe-area-inset-top)', height: 'calc(3.5rem + env(safe-area-inset-top))' }}
+            >
           {sidebarCollapsed ? (
             <div className="bg-blue-600 p-1.5 rounded-lg"><Smartphone className="text-white" size={18} /></div>
           ) : (
