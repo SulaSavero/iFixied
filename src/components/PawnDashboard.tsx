@@ -486,11 +486,11 @@ const isModalCurrentMonth = modalPeriodMonth.getFullYear() === new Date().getFul
 <div className="ios-blob delay-3 w-[320px] h-[320px] bg-purple-200 bottom-0 left-1/3" />
 */}
 
-      {sidebarOpen && <div className="glass-overlay z-40 md:hidden" onClick={() => setSidebarOpen(false)} />}
+      {sidebarOpen && <div className="glass-overlay z-55 md:hidden" onClick={() => setSidebarOpen(false)} />}
 
       {/* Sidebar */}
       <aside className={`
-        fixed inset-y-0 left-0 z-50 bg-white/70 backdrop-blur-2xl border-r border-white/40 flex flex-col
+         fixed inset-y-0 left-0 z-60 bg-white border-r border-slate-100 flex flex-col
         transition-all duration-500 spring
         shadow-[8px_0_40px_-8px_rgba(0,0,0,0.15)] md:shadow-none
         md:static md:translate-x-0
@@ -803,9 +803,18 @@ const isModalCurrentMonth = modalPeriodMonth.getFullYear() === new Date().getFul
               <div className="glass-card overflow-hidden">
                 <div className="p-2.5 md:p-4 border-b border-slate-50">
                   <div className="relative max-w-sm">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                    <input type="text" placeholder="Cari nama atau gadget..." className="w-full pl-7 pr-3 py-1.5 md:py-2 bg-white/70 backdrop-blur-sm border border-white/50 rounded-2xl text-[10px] md:text-sm outline-none focus:ring-2 focus:ring-blue-500" value={search} onChange={e => setSearch(e.target.value)} />
-                  </div>
+                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                <input type="text" placeholder="Cari nama atau gadget..." className="w-full pl-7 pr-8 py-1.5 md:py-2 bg-white border border-slate-200 rounded-2xl text-[10px] md:text-sm outline-none focus:ring-2 focus:ring-blue-500" value={search} onChange={e => setSearch(e.target.value)} />
+              {search && (
+                 <button
+                     type="button"
+                      onClick={() => setSearch('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                    >
+                  <X size={14} />
+                 </button>
+                )}
+              </div>
                 </div>
                 <div className="md:hidden p-2.5 space-y-2.5 bg-transparent">
                   {fPawns.length === 0 && (
@@ -932,7 +941,16 @@ const isModalCurrentMonth = modalPeriodMonth.getFullYear() === new Date().getFul
                 <div className="p-2.5 md:p-4 border-b border-slate-50">
                   <div className="relative max-w-sm">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                    <input type="text" placeholder="Cari member..." className="w-full pl-7 pr-3 py-1.5 md:py-2 bg-white/70 backdrop-blur-sm border border-white/50 rounded-2xl text-[10px] md:text-sm outline-none focus:ring-2 focus:ring-blue-500" value={search} onChange={e => setSearch(e.target.value)} />
+                      <input type="text" placeholder="Cari member..." className="w-full pl-7 pr-8 py-1.5 md:py-2 bg-white border border-slate-200 rounded-2xl text-[10px] md:text-sm outline-none focus:ring-2 focus:ring-blue-500" value={search} onChange={e => setSearch(e.target.value)} />
+                        {search && (
+                         <button
+                        type="button"
+                       onClick={() => setSearch('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                        >
+                     <X size={14} />
+                    </button>
+                   )}
                   </div>
                 </div>
 
