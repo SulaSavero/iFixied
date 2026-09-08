@@ -7,7 +7,7 @@ import {
   Smartphone, TrendingUp, Users, Star, LayoutDashboard,
   Menu, X, PieChart, Calendar, DollarSign, Wallet, Save, Package,
   Settings, Lock, Store, Percent, Gift, Database, Upload, Trash, Eye, EyeOff,
-  ScanLine, AlertCircle, ChevronLeft, ChevronRight, MoreVertical
+  ScanLine, AlertCircle, ChevronLeft, ChevronRight, MoreVertical, RefreshCw
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import * as XLSX from 'xlsx';
@@ -57,6 +57,7 @@ export default function PawnDashboard() {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<'overview' | 'pawns' | 'members' | 'settings'>('overview');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -140,6 +141,25 @@ const isModalCurrentMonth = modalPeriodMonth.getFullYear() === new Date().getFul
     ]).finally(() => setLoading(false));
   }, []);
 
+  const refreshData = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      const [pawnsRes, membersRes] = await Promise.all([
+        fetch('/api/pawns'),
+        fetch('/api/members'),
+      ]);
+      const pawnsData: Pawn[] = await pawnsRes.json();
+      const membersData: Member[] = await membersRes.json();
+      setPawns(pawnsData.map((pawn) => ({ ...pawn, status: pawn.status || 'active' })));
+      setMembers(membersData);
+    } catch (err) {
+      console.error('Gagal refresh data:', err);
+      alert('Gagal memuat ulang data. Coba lagi.');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const savePawn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -561,7 +581,17 @@ const isModalCurrentMonth = modalPeriodMonth.getFullYear() === new Date().getFul
           <button onClick={() => setSidebarOpen(true)} className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg md:hidden"><Menu size={20} /></button>
           <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg hidden md:flex"><Menu size={20} /></button>
           <span className="text-sm font-bold text-slate-800 capitalize">{activeTab === 'overview' ? 'Dashboard' : activeTab === 'pawns' ? 'Data Gadaian' : activeTab === 'members' ? 'Kelola Member' : 'Pengaturan'}</span>
-          <span className="ml-auto text-[10px] font-bold text-slate-400 bg-[#f2f2f7] px-3 py-1.5 rounded-full hidden sm:block">{format(now, 'dd MMM yyyy')}</span>
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={refreshData}
+              disabled={isRefreshing}
+              title="Muat ulang data"
+              className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-all active:scale-90 disabled:opacity-50"
+            >
+              <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
+            </button>
+            <span className="text-[10px] font-bold text-slate-400 bg-[#f2f2f7] px-3 py-1.5 rounded-full hidden sm:block">{format(now, 'dd MMM yyyy')}</span>
+          </div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
