@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'sFixied',
   webDir: 'public',
   server: {
-    url: 'https://sfixied.netlify.app',
+    url: 'https://i-fixied.vercel.app/',
     cleartext: false
   }
 };
