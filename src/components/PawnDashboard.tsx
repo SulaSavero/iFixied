@@ -10,6 +10,7 @@ import {
   ScanLine, AlertCircle, ChevronLeft, ChevronRight, MoreVertical, RefreshCw
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import AdminAssistant from '@/components/AdminAssistant';
 import * as XLSX from 'xlsx';
 
 interface Pawn {
@@ -1328,6 +1329,7 @@ const isModalCurrentMonth = modalPeriodMonth.getFullYear() === new Date().getFul
     </div>
   </div>
 )}
+      <AdminAssistant onPawnCreated={refreshData} />
     </div>
   );
 }
